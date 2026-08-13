@@ -1,0 +1,15 @@
+# Motor Inn Auto Group - AI-Readable Resources
+
+Canonical website: https://www.motorinnautogroup.com  
+AI-readable discovery host: https://ai.motorinnautogroup.com
+
+- [Dealership overview](https://ai.motorinnautogroup.com/dealership.md)
+- [Contact and hours](https://ai.motorinnautogroup.com/contact-hours.md)
+- [Service](https://ai.motorinnautogroup.com/service.md)
+- [Finance and trade](https://ai.motorinnautogroup.com/finance-trade.md)
+- [Policies](https://ai.motorinnautogroup.com/policies.md)
+- [Current new inventory](https://ai.motorinnautogroup.com/new-inventory.md)
+- [Current pre-owned inventory](https://ai.motorinnautogroup.com/used-inventory.md)
+- [Current offers](https://ai.motorinnautogroup.com/offers.md)
+
+The canonical DealerOn HTML controls customer-facing facts. Inventory is published only after matching DealerVault/Athena data to a current public DealerOn vehicle page.

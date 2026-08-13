@@ -95,8 +95,6 @@ aws lambda add-permission --region "$REGION" --function-name "$FUNCTION_NAME" \
   --statement-id AllowEventBridgeSchedule --action lambda:InvokeFunction --principal events.amazonaws.com \
   --source-arn "arn:aws:events:${REGION}:${ACCOUNT_ID}:rule/${RULE_NAME}" >/dev/null 2>&1 || true
 
-aws logs put-retention-policy --region "$REGION" --log-group-name "/aws/lambda/$FUNCTION_NAME" --retention-in-days 30 2>/dev/null || true
-
 aws cloudwatch put-metric-alarm --region "$REGION" \
   --alarm-name motorinn-ai-markdown-proxy-monitor-errors \
   --namespace AWS/Lambda --metric-name Errors --dimensions "Name=FunctionName,Value=$FUNCTION_NAME" \
@@ -104,4 +102,5 @@ aws cloudwatch put-metric-alarm --region "$REGION" \
   --threshold 0 --comparison-operator GreaterThanThreshold --treat-missing-data notBreaching
 
 aws lambda invoke --region "$REGION" --function-name "$FUNCTION_NAME" "$tmp_dir/invoke.json" >/dev/null
+aws logs put-retention-policy --region "$REGION" --log-group-name "/aws/lambda/$FUNCTION_NAME" --retention-in-days 30
 cat "$tmp_dir/invoke.json"

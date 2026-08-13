@@ -1,0 +1,11 @@
+# Motor Inn Auto Group
+
+> The canonical customer website is https://www.motorinnautogroup.com. Source-backed, AI-readable dealership and inventory resources are published on the matching read-only discovery host.
+
+- [AI-readable site index](https://ai.motorinnautogroup.com/llms.txt)
+- [Full AI-readable site guide](https://ai.motorinnautogroup.com/llms-full.txt)
+- [Current new inventory](https://ai.motorinnautogroup.com/new-inventory.md)
+- [Current pre-owned inventory](https://ai.motorinnautogroup.com/used-inventory.md)
+- [Current offers](https://ai.motorinnautogroup.com/offers.md)
+
+DealerVault/Athena inventory is matched to current public DealerOn vehicle pages before a unit is published. Customer and lead data are never included.

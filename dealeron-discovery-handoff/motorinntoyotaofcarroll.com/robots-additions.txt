@@ -1,0 +1,18 @@
+# Preserve all existing DealerOn robots.txt rules and append these blocks.
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /

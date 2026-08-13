@@ -1,0 +1,11 @@
+# Motor Inn of Carroll
+
+> The canonical customer website is https://www.motorinnofcarroll.com. Source-backed, AI-readable dealership and inventory resources are published on the matching read-only discovery host.
+
+- [AI-readable site index](https://ai.motorinnofcarroll.com/llms.txt)
+- [Full AI-readable site guide](https://ai.motorinnofcarroll.com/llms-full.txt)
+- [Current new Chevrolet inventory](https://ai.motorinnofcarroll.com/new-inventory.md)
+- [Current pre-owned inventory](https://ai.motorinnofcarroll.com/used-inventory.md)
+- [Current offers](https://ai.motorinnofcarroll.com/offers.md)
+
+DealerVault/Athena inventory is matched to current public DealerOn vehicle pages before a unit is published. Customer and lead data are never included.

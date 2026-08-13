@@ -52,6 +52,10 @@ After DNS resolves, Caddy obtains and renews certificates automatically. Deploy 
 
 The monitor checks each host's full source health, `llms.txt`, inventory, and crawler policy every 15 minutes. It records status, latency, HTTP code, and source freshness in CloudWatch. After two consecutive hard failures it alerts `#seo-monitoring`; it also posts one recovery notice.
 
+The minimal DealerOn discovery files and implementation request are under
+`dealeron-discovery-handoff/`. DealerOn only needs to publish those root files;
+the proxy, dynamic inventory gate, and HTTPS service remain AWS-managed.
+
 ## What It Serves
 
 ### `GET /llms.txt` and `GET /llms-full.txt`
