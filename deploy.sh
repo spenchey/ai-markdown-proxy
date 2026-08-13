@@ -84,8 +84,8 @@ command_id="$(aws ssm send-command \
     \"docker stop ai-markdown-proxy 2>/dev/null || true\",
     \"docker rm ai-markdown-proxy 2>/dev/null || true\",
     \"docker run -d --name ai-markdown-proxy --restart unless-stopped -p 80:8080 --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$LOG_GROUP --log-opt awslogs-create-group=false ai-markdown-proxy:production\",
-    \"curl -fsS http://127.0.0.1/__health\",
-    \"curl -fsS http://127.0.0.1/__health/full\"
+    \"for attempt in {1..20}; do curl -fsS http://127.0.0.1/__health && break; sleep 1; done\",
+    \"curl -fsS --retry 5 --retry-delay 1 --retry-connrefused http://127.0.0.1/__health/full\"
   ]" \
   --query 'Command.CommandId' --output text)"
 
