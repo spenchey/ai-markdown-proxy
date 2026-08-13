@@ -1,0 +1,34 @@
+# Motor Inn Toyota Of Carroll
+
+> Motor Inn Toyota Of Carroll is a Toyota dealership in Carroll, Iowa, serving Carroll, Glidden, Ralston, Denison, Jefferson, Audubon, and surrounding communities with new Toyota and pre-owned vehicles, financing, trade appraisals, Toyota service, and parts. This index points AI assistants and browsing agents to the site's authoritative human and machine-readable resources.
+
+Stable facts verified 2026-08-02T13:30:00-05:00. Generated from source/sites.json; do not maintain a second copy of these facts in DealerOn. Dynamic inventory and offer files must come from DealerOn's live source feeds.
+
+## Core machine-readable resources
+
+- [Dealership facts](https://www.motorinntoyotaofcarroll.com/dealership.md): Canonical identity, brands, address, aliases, and relationships.
+- [Contact and hours](https://www.motorinntoyotaofcarroll.com/contact-hours.md): Department contact details and regular hours.
+- [New inventory](https://www.motorinntoyotaofcarroll.com/new-inventory.md): Current new vehicles, VINs, prices, availability, locations, and canonical VDP links.
+- [Used inventory](https://www.motorinntoyotaofcarroll.com/used-inventory.md): Current pre-owned vehicles, VINs, prices, mileage, availability, locations, and canonical VDP links.
+- [Current offers](https://www.motorinntoyotaofcarroll.com/offers.md): Current vehicle and service offers with eligibility, expiration, and disclosures.
+- [Service and parts](https://www.motorinntoyotaofcarroll.com/service.md): Service capabilities and appointment/parts resources.
+- [Finance and trade](https://www.motorinntoyotaofcarroll.com/finance-trade.md): Financing, calculator, pre-approval, and trade appraisal resources.
+- [Policies](https://www.motorinntoyotaofcarroll.com/policies.md): Privacy, legal, pricing, consent, and data-use references.
+
+## Canonical human pages
+
+- [Home](https://www.motorinntoyotaofcarroll.com/)
+- [New Inventory](https://www.motorinntoyotaofcarroll.com/searchnew.aspx)
+- [Used Inventory](https://www.motorinntoyotaofcarroll.com/searchused.aspx)
+- [Specials](https://www.motorinntoyotaofcarroll.com/newspecials.html)
+- [Service](https://www.motorinntoyotaofcarroll.com/service-center.html)
+- [Finance](https://www.motorinntoyotaofcarroll.com/finance.aspx)
+- [Trade](https://www.motorinntoyotaofcarroll.com/trade.aspx)
+- [Contact](https://www.motorinntoyotaofcarroll.com/contactus.aspx)
+- [Hours](https://www.motorinntoyotaofcarroll.com/hours.aspx)
+
+## Optional
+
+- [Expanded site guide](https://www.motorinntoyotaofcarroll.com/llms-full.txt): Detailed stable facts and task routing.
+- [XML sitemap](https://www.motorinntoyotaofcarroll.com/sitemap.xml): DealerOn's current human and inventory URL inventory.
+- [Robots policy](https://www.motorinntoyotaofcarroll.com/robots.txt): Crawl rules and rate guidance.

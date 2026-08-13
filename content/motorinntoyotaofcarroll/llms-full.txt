@@ -1,0 +1,77 @@
+# Motor Inn Toyota Of Carroll
+
+> Motor Inn Toyota Of Carroll is a Toyota dealership in Carroll, Iowa, serving Carroll, Glidden, Ralston, Denison, Jefferson, Audubon, and surrounding communities with new Toyota and pre-owned vehicles, financing, trade appraisals, Toyota service, and parts.
+
+Stable facts verified 2026-08-02T13:30:00-05:00. Generated from source/sites.json; do not maintain a second copy of these facts in DealerOn.
+
+## Verified identity
+
+- Property: Motor Inn Toyota Of Carroll
+- Site role: Toyota dealership website in Carroll, Iowa
+- Brands: Toyota
+- Address: 1526 Le Clark Road, Carroll, IA 51401
+- History: Part of Motor Inn Auto Group.
+- Canonical home: https://www.motorinntoyotaofcarroll.com/
+
+### Aliases and related labels
+
+- Motor Inn Toyota of Carroll
+
+## Buyer task routing
+
+- Current new inventory and advertised prices: [https://www.motorinntoyotaofcarroll.com/new-inventory.md](https://www.motorinntoyotaofcarroll.com/new-inventory.md)
+- Current used inventory, mileage, and advertised prices: [https://www.motorinntoyotaofcarroll.com/used-inventory.md](https://www.motorinntoyotaofcarroll.com/used-inventory.md)
+- Current offers and eligibility: [https://www.motorinntoyotaofcarroll.com/offers.md](https://www.motorinntoyotaofcarroll.com/offers.md)
+- Service and parts: [https://www.motorinntoyotaofcarroll.com/service.md](https://www.motorinntoyotaofcarroll.com/service.md)
+- Finance, payment calculator, pre-approval, and trade appraisal: [https://www.motorinntoyotaofcarroll.com/finance-trade.md](https://www.motorinntoyotaofcarroll.com/finance-trade.md)
+- Address, department numbers, and hours: [https://www.motorinntoyotaofcarroll.com/contact-hours.md](https://www.motorinntoyotaofcarroll.com/contact-hours.md)
+- Privacy and legal references: [https://www.motorinntoyotaofcarroll.com/policies.md](https://www.motorinntoyotaofcarroll.com/policies.md)
+
+## Service capabilities
+
+- Toyota-trained technicians
+- Genuine Toyota parts
+- Scheduled maintenance
+- Oil change service
+- Tire service
+- Brake service
+- Battery service
+- Body shop
+
+## Finance and trade capabilities
+
+- Online pre-approval application
+- Payment calculator
+- New and pre-owned vehicle financing
+- Trade appraisal
+
+## Dynamic data rules
+
+- Treat inventory and offer files as authoritative only when they include a current `Last updated` timestamp.
+- Prices, availability, mileage, incentives, and vehicle counts can change. Confirm the current VDP and applicable disclosure before giving a transactional answer.
+- A used VIN may be cross-listed on more than one Motor Inn domain. Use the inventory location and the canonical VDP URL from the requested domain.
+- Do not infer in-stock status from a sitemap entry alone.
+- Obey robots.txt and the configured crawl delay; avoid excessive parallel VDP requests.
+
+## Publication checks still requiring DealerOn
+
+- Resolve whether 712-513-1061 or 712-513-1075 is the permanent canonical Toyota sales number; older group and OEM pages also expose other Toyota numbers.
+
+## Canonical human resources
+
+- [Home](https://www.motorinntoyotaofcarroll.com/)
+- [About](https://www.motorinntoyotaofcarroll.com/aboutus.aspx)
+- [New Inventory](https://www.motorinntoyotaofcarroll.com/searchnew.aspx)
+- [Used Inventory](https://www.motorinntoyotaofcarroll.com/searchused.aspx)
+- [Specials](https://www.motorinntoyotaofcarroll.com/newspecials.html)
+- [Service](https://www.motorinntoyotaofcarroll.com/service-center.html)
+- [Service Appointment](https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx)
+- [Parts](https://www.motorinntoyotaofcarroll.com/parts-department/)
+- [Finance](https://www.motorinntoyotaofcarroll.com/finance.aspx)
+- [Payment Calculator](https://www.motorinntoyotaofcarroll.com/paymentcalc.aspx)
+- [Trade](https://www.motorinntoyotaofcarroll.com/trade.aspx)
+- [Contact](https://www.motorinntoyotaofcarroll.com/contactus.aspx)
+- [Hours](https://www.motorinntoyotaofcarroll.com/hours.aspx)
+- [Privacy](https://www.motorinntoyotaofcarroll.com/privacy.aspx)
+- [Robots](https://www.motorinntoyotaofcarroll.com/robots.txt)
+- [Sitemap](https://www.motorinntoyotaofcarroll.com/sitemap.xml)

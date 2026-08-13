@@ -1,0 +1,112 @@
+{
+  "files": [
+    {
+      "file": "llms.txt",
+      "sha256": "2e43a7f707e21d8259d7e9d2c18410883b1d9fb2a15497da57f7a3d32bef3f8d",
+      "site": "motorinnautogroup"
+    },
+    {
+      "file": "llms-full.txt",
+      "sha256": "e56a546be835f337135f76f6ecc204519da0ecb0da22d6f4e757ca2e0fb3b0e8",
+      "site": "motorinnautogroup"
+    },
+    {
+      "file": "dealership.md",
+      "sha256": "f67462804748bf5ddc3fade9953d28f177cd593af812357e3a012dd53c139c18",
+      "site": "motorinnautogroup"
+    },
+    {
+      "file": "contact-hours.md",
+      "sha256": "129f392881d015d6691b6bc63442cb7fa0db711079fc594e61f3f94c54a4d3ef",
+      "site": "motorinnautogroup"
+    },
+    {
+      "file": "service.md",
+      "sha256": "beca75ce42e7f06cdf73c4e9978cc7b4c88a12919eb6dcfb389159f7acc95bf6",
+      "site": "motorinnautogroup"
+    },
+    {
+      "file": "finance-trade.md",
+      "sha256": "ecc56364858f3f8f3f005e36ad4e06d6fd8d6164604b7dded3ad8ef49718a25b",
+      "site": "motorinnautogroup"
+    },
+    {
+      "file": "policies.md",
+      "sha256": "275534e4500d3400755fd6d1fcb8fb1e3904a416ab0b33503871755c5182c2b3",
+      "site": "motorinnautogroup"
+    },
+    {
+      "file": "llms.txt",
+      "sha256": "cd28aba0adafac363182d40cd87722ec4f0c0a3a5a65e30268bcb57955b29cfd",
+      "site": "motorinnofcarroll"
+    },
+    {
+      "file": "llms-full.txt",
+      "sha256": "74a7798974007a29830075ae6b7bb39787096831d3e7594c486980c345f2e972",
+      "site": "motorinnofcarroll"
+    },
+    {
+      "file": "dealership.md",
+      "sha256": "19e797c0168460152e24b8afff55584619b0af4c76a5aeec703994618d19cce8",
+      "site": "motorinnofcarroll"
+    },
+    {
+      "file": "contact-hours.md",
+      "sha256": "92f31729f03a4603d0597ab19388d2db1f2eaced8a307d9862651d5cea1d6422",
+      "site": "motorinnofcarroll"
+    },
+    {
+      "file": "service.md",
+      "sha256": "ba0d82899bac367dfeea4d0f36c5938ce088f9d324b188b07bc2c3f04a54466c",
+      "site": "motorinnofcarroll"
+    },
+    {
+      "file": "finance-trade.md",
+      "sha256": "482f33cc1ff689ebc197a754176cd0d869f34b3a1967ad53d3486d721ab059e6",
+      "site": "motorinnofcarroll"
+    },
+    {
+      "file": "policies.md",
+      "sha256": "44563cba93f5a545691bd2d5302bad411ed4d23ebba493a334a5e51363b8104b",
+      "site": "motorinnofcarroll"
+    },
+    {
+      "file": "llms.txt",
+      "sha256": "d16f9d5f07252bd82afca66bcfad0a348487ea1188a890df5cde190fcc5209ca",
+      "site": "motorinntoyotaofcarroll"
+    },
+    {
+      "file": "llms-full.txt",
+      "sha256": "29ecd7669f3b2db56bcac6556f11de3685d7b94d3a7b53c53842e9d5006c622e",
+      "site": "motorinntoyotaofcarroll"
+    },
+    {
+      "file": "dealership.md",
+      "sha256": "31618110db29244beee911262382ef64714c8459d3138d6002e68e360824a6d4",
+      "site": "motorinntoyotaofcarroll"
+    },
+    {
+      "file": "contact-hours.md",
+      "sha256": "6cb735c07e1cea14be53949d8e9b09c37473555ca78e9c2e874260c52b6e11d1",
+      "site": "motorinntoyotaofcarroll"
+    },
+    {
+      "file": "service.md",
+      "sha256": "6104eed2ff967692ce8f1c25e61a473b187fad403de9fe2722f7a6024fe78cf6",
+      "site": "motorinntoyotaofcarroll"
+    },
+    {
+      "file": "finance-trade.md",
+      "sha256": "54f7a1d567bc41b3cb8a0647ac957507be32f0be340605c252a5aeae76e2619f",
+      "site": "motorinntoyotaofcarroll"
+    },
+    {
+      "file": "policies.md",
+      "sha256": "b5dcbe62d89689f4d5ffc7ed3672d5cf522622f40837132ab20fb439b1c95794",
+      "site": "motorinntoyotaofcarroll"
+    }
+  ],
+  "generatedAt": "2026-08-13T18:12:50Z",
+  "schema": "motorinn.aiReadableContentManifest.v1",
+  "sourcePackage": "dealeron-ai-readability-2026-08-02"
+}

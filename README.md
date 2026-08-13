@@ -1,16 +1,19 @@
-# AI Markdown Proxy for Motor Inn Auto Group
+# AI-Readable Mirror for Motor Inn Auto Group
 
-Converts DealerOn-powered dealership websites to AI-readable markdown, serving `llms.txt` and clean markdown pages for AI search agents (ChatGPT, Perplexity, Claude, etc.).
+Serves validated site-specific `llms.txt` and Markdown resources for Motor Inn's three DealerOn sites. Dynamic inventory is published only when a unit matches the current DealerVault/Athena export and DealerOn's public catalog.
+
+This is an AI-agent readability layer, not a Google ranking shortcut. The canonical DealerOn HTML pages remain the Google/Search Console source of truth.
 
 ## Architecture
 
 ```
-Internet (port 80) ──► [ EC2 t3.nano ] ──► DealerOn Sites
+AI subdomain (HTTPS) ──► [ EC2 t3.nano ] ──► DealerOn pages
                            │
-                           ├─ /llms.txt ────────────► Served directly (tells AI what pages exist)
-                           ├─ /robots.txt ──────────► Served directly (allows AI bots)
-                           ├─ /?site=motorinn... ──► Fetches live HTML, converts to markdown on-the-fly
-                           └─ /__health ───────────► Health check
+                           ├─ validated static Markdown package
+                           ├─ DealerVault/Athena active-inventory gate
+                           ├─ DealerOn public VDP and image enrichment
+                           ├─ on-demand HTML-to-Markdown conversion
+                           └─ structured CloudWatch logs and health checks
 ```
 
 ## Quick Start (Local)
@@ -34,38 +37,29 @@ curl -H "Accept: text/markdown" "http://localhost:8081/?site=motorinnautogroup"
 
 ## Deploy to AWS
 
-1. **Configure AWS CLI** (if not already done):
-   ```bash
-   aws configure
-   ```
+`./deploy.sh` updates the existing instance through Systems Manager, attaches least-privilege inventory access, creates a 30-day CloudWatch log group, removes public SSH, and assigns a stable Elastic IP.
 
-2. **Push the code to a GitHub repo:**
-   ```bash
-   git init && git add . && git commit -m "AI Markdown Proxy"
-   git remote add origin https://github.com/YOUR-USER/ai-markdown-proxy.git
-   git push -u origin main
-   ```
-
-3. **Launch EC2 instance:**
-   ```bash
-   ./deploy.sh
-   ```
-
-4. **Point subdomains at the EC2 IP:**
+Point these subdomains at the reported Elastic IP:
    - `ai.motorinnautogroup.com` ──► EC2 Public IP
    - `ai.motorinntoyotaofcarroll.com` ──► EC2 Public IP  
    - `ai.motorinnofcarroll.com` ──► EC2 Public IP
 
 ## What It Serves
 
-### `GET /llms.txt`
-Lists all pages on all three sites with descriptions. AI agents use this to know what's available.
+### `GET /llms.txt` and `GET /llms-full.txt`
+Returns the validated package for the request hostname. Site identities and content are not combined.
 
 ### `GET /robots.txt`
-Allows all AI bots (GPTBot, Claude-Web, PerplexityBot, CCBot) to crawl the site.
+Allows citation/search crawlers. Model-training crawlers remain blocked unless `ALLOW_TRAINING_CRAWLERS=true` is an explicit owner decision.
 
-### `GET /?site=<site_id>&path=<path>` with `Accept: text/markdown`
-Fetches the requested page from the live DealerOn site, converts HTML → markdown, and returns it.
+### `GET /new-inventory.md` and `GET /used-inventory.md`
+Matches the latest DealerVault/Athena inventory export against public DealerOn VDPs and photos. A missing or stale source returns `503`; it never publishes guessed facts.
+
+### `GET /offers.md`
+Converts the site's current DealerOn offer page and links back to the controlling source and disclosures.
+
+### `GET /<path>` with `Accept: text/markdown`
+Fetches the equivalent canonical DealerOn page and returns `text/markdown`. Normal browser requests redirect to the canonical human page.
 
 **Sites:**
 - `motorinnautogroup` → motorinnautogroup.com
@@ -73,18 +67,11 @@ Fetches the requested page from the live DealerOn site, converts HTML → markdo
 - `motorinnchevy` → motorinnofcarroll.com
 
 ### `GET /__health`
-Returns JSON health status.
-
-## S3-Hosted Alternative
-
-If you prefer not to run a server at all, the same `llms.txt` files can be generated statically and uploaded to S3:
-
-1. Generate markdown for all key pages
-2. Upload to S3 bucket with `text/markdown` content-type
-3. Serve via CloudFront
+Returns static health. `/__health/full` also proves DealerVault/public catalog freshness and matching.
 
 ## Cost
 
 - **EC2 t3.nano**: ~$3.50/month (always-on)
 - **Data transfer**: Minimal (text-only, cached)
-- **Total**: Under $5/month
+- **Elastic IP**: no additional charge while attached
+- **Logs and DNS**: minimal at this traffic level

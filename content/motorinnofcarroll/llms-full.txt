@@ -1,0 +1,77 @@
+# Motor Inn of Carroll
+
+> Motor Inn of Carroll is a Chevrolet dealership located in Carroll, Iowa, serving Lake City, Audubon, Arcadia, Coon Rapids, Denison, and surrounding communities with new Chevrolet and pre-owned vehicles, financing, trade appraisals, certified service, and parts.
+
+Stable facts verified 2026-08-02T13:30:00-05:00. Generated from source/sites.json; do not maintain a second copy of these facts in DealerOn.
+
+## Verified identity
+
+- Property: Motor Inn of Carroll
+- Site role: Chevrolet dealership website in Carroll, Iowa
+- Brands: Chevrolet
+- Address: 1526 Le Clark Rd, Carroll, IA 51401
+- History: Part of Motor Inn Auto Group.
+- Canonical home: https://www.motorinnofcarroll.com/
+
+### Aliases and related labels
+
+- Motor Inn Chevrolet of Carroll (group-site location label)
+
+## Buyer task routing
+
+- Current new inventory and advertised prices: [https://www.motorinnofcarroll.com/new-inventory.md](https://www.motorinnofcarroll.com/new-inventory.md)
+- Current used inventory, mileage, and advertised prices: [https://www.motorinnofcarroll.com/used-inventory.md](https://www.motorinnofcarroll.com/used-inventory.md)
+- Current offers and eligibility: [https://www.motorinnofcarroll.com/offers.md](https://www.motorinnofcarroll.com/offers.md)
+- Service and parts: [https://www.motorinnofcarroll.com/service.md](https://www.motorinnofcarroll.com/service.md)
+- Finance, payment calculator, pre-approval, and trade appraisal: [https://www.motorinnofcarroll.com/finance-trade.md](https://www.motorinnofcarroll.com/finance-trade.md)
+- Address, department numbers, and hours: [https://www.motorinnofcarroll.com/contact-hours.md](https://www.motorinnofcarroll.com/contact-hours.md)
+- Privacy and legal references: [https://www.motorinnofcarroll.com/policies.md](https://www.motorinnofcarroll.com/policies.md)
+
+## Service capabilities
+
+- Chevrolet Certified Service
+- GM Genuine Parts and ACDelco parts
+- Inspections
+- Oil change service
+- Tire service
+- Brake service
+- Battery service
+- Collision and body shop
+
+## Finance and trade capabilities
+
+- Online pre-approval application
+- Payment calculator
+- New and pre-owned vehicle financing
+- Trade appraisal
+
+## Dynamic data rules
+
+- Treat inventory and offer files as authoritative only when they include a current `Last updated` timestamp.
+- Prices, availability, mileage, incentives, and vehicle counts can change. Confirm the current VDP and applicable disclosure before giving a transactional answer.
+- A used VIN may be cross-listed on more than one Motor Inn domain. Use the inventory location and the canonical VDP URL from the requested domain.
+- Do not infer in-stock status from a sitemap entry alone.
+- Obey robots.txt and the configured crawl delay; avoid excessive parallel VDP requests.
+
+## Publication checks still requiring DealerOn
+
+- No unresolved stable-fact blockers were found during this package build.
+
+## Canonical human resources
+
+- [Home](https://www.motorinnofcarroll.com/)
+- [About](https://www.motorinnofcarroll.com/aboutus.aspx)
+- [New Inventory](https://www.motorinnofcarroll.com/searchnew.aspx)
+- [Used Inventory](https://www.motorinnofcarroll.com/searchused.aspx)
+- [Specials](https://www.motorinnofcarroll.com/newspecials.html)
+- [Service](https://www.motorinnofcarroll.com/service)
+- [Service Appointment](https://www.motorinnofcarroll.com/serviceappmt.aspx)
+- [Parts](https://www.motorinnofcarroll.com/orderparts.aspx)
+- [Finance](https://www.motorinnofcarroll.com/finance.aspx)
+- [Payment Calculator](https://www.motorinnofcarroll.com/paymentcalc.aspx)
+- [Trade](https://www.motorinnofcarroll.com/trade.aspx)
+- [Contact](https://www.motorinnofcarroll.com/contactus.aspx)
+- [Hours](https://www.motorinnofcarroll.com/hours.aspx)
+- [Privacy](https://www.motorinnofcarroll.com/privacy.aspx)
+- [Robots](https://www.motorinnofcarroll.com/robots.txt)
+- [Sitemap](https://www.motorinnofcarroll.com/sitemap.xml)

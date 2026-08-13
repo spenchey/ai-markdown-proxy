@@ -1,99 +1,109 @@
-#!/bin/bash
-# Deploy AI Markdown Proxy to AWS EC2
-# Prerequisites: AWS CLI configured, SSH key pair available
-# Usage: ./deploy.sh [instance-type] [region]
+#!/usr/bin/env bash
+# Create or update the production AI-readable mirror on AWS.
 
-set -e
+set -euo pipefail
 
-INSTANCE_TYPE="${1:-t3.nano}"
-REGION="${2:-us-east-1}"
-KEY_NAME="ai-proxy-key"
-SEC_GROUP="ai-markdown-proxy-sg"
+REGION="${AWS_REGION:-us-east-1}"
+INSTANCE_ID="${AI_PROXY_INSTANCE_ID:-i-0cf5041ecb2a0045b}"
+ROLE_NAME="${AI_PROXY_ROLE_NAME:-motorinn-ai-markdown-proxy-role}"
+PROFILE_NAME="${AI_PROXY_PROFILE_NAME:-motorinn-ai-markdown-proxy-profile}"
+LOG_GROUP="${AI_PROXY_LOG_GROUP:-/motorinn/ai-markdown-proxy}"
+REPOSITORY="${AI_PROXY_REPOSITORY:-https://github.com/spenchey/ai-markdown-proxy.git}"
 
-echo "=== AI Markdown Proxy - AWS Deployment ==="
-echo "Instance type: $INSTANCE_TYPE"
-echo "Region: $REGION"
-echo ""
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
 
-# Create security group
-echo "Creating security group..."
-SG_ID=$(aws ec2 create-security-group \
-    --group-name "$SEC_GROUP" \
-    --description "Security group for AI Markdown Proxy" \
-    --region "$REGION" \
-    --query 'GroupId' --output text 2>/dev/null || true)
+cat >"$tmp_dir/trust.json" <<'JSON'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {"Service": "ec2.amazonaws.com"},
+    "Action": "sts:AssumeRole"
+  }]
+}
+JSON
 
-if [ -z "$SG_ID" ]; then
-    SG_ID=$(aws ec2 describe-security-groups \
-        --group-names "$SEC_GROUP" \
-        --region "$REGION" \
-        --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
+cat >"$tmp_dir/inventory-read.json" <<'JSON'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "ReadPublishedDealerVaultInventory",
+    "Effect": "Allow",
+    "Action": ["s3:GetObject"],
+    "Resource": "arn:aws:s3:::motorinn-dealervault-raw/normalized/current_inventory_market/latest/current-inventory-market.json"
+  }]
+}
+JSON
+
+if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+  aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document "file://$tmp_dir/trust.json" >/dev/null
+fi
+aws iam update-assume-role-policy --role-name "$ROLE_NAME" --policy-document "file://$tmp_dir/trust.json"
+aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name ReadMotorInnPublishedInventory --policy-document "file://$tmp_dir/inventory-read.json"
+aws iam attach-role-policy --role-name "$ROLE_NAME" --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+aws iam attach-role-policy --role-name "$ROLE_NAME" --policy-arn arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null 2>&1; then
+  aws iam create-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null
+fi
+if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" --query "InstanceProfile.Roles[?RoleName=='$ROLE_NAME']" --output text | grep -q "$ROLE_NAME"; then
+  aws iam add-role-to-instance-profile --instance-profile-name "$PROFILE_NAME" --role-name "$ROLE_NAME"
 fi
 
-echo "Security group ID: $SG_ID"
-
-# Authorize ports 22 (SSH) and 80 (HTTP)
-aws ec2 authorize-security-group-ingress \
-    --group-id "$SG_ID" \
-    --protocol tcp --port 22 --cidr 0.0.0.0/0 \
-    --region "$REGION" 2>/dev/null || true
-
-aws ec2 authorize-security-group-ingress \
-    --group-id "$SG_ID" \
-    --protocol tcp --port 80 --cidr 0.0.0.0/0 \
-    --region "$REGION" 2>/dev/null || true
-
-# Create key pair if it doesn't exist
-KEY_FILE="${KEY_NAME}.pem"
-if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" --region "$REGION" 2>/dev/null; then
-    echo "Creating key pair $KEY_NAME..."
-    aws ec2 create-key-pair \
-        --key-name "$KEY_NAME" \
-        --query 'KeyMaterial' \
-        --output text \
-        --region "$REGION" > "$KEY_FILE"
-    chmod 400 "$KEY_FILE"
-    echo "Key saved to $KEY_FILE"
+association_id="$(aws ec2 describe-iam-instance-profile-associations --region "$REGION" --filters Name=instance-id,Values="$INSTANCE_ID" --query 'IamInstanceProfileAssociations[?State!=`disassociated`].AssociationId|[0]' --output text)"
+if [[ -z "$association_id" || "$association_id" == "None" ]]; then
+  sleep 10
+  aws ec2 associate-iam-instance-profile --region "$REGION" --instance-id "$INSTANCE_ID" --iam-instance-profile Name="$PROFILE_NAME" >/dev/null
 fi
 
-# Get latest Amazon Linux 2023 AMI
-AMI_ID=$(aws ssm get-parameters \
-    --names /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 \
-    --region "$REGION" \
-    --query 'Parameters[0].Value' --output text)
+aws logs create-log-group --region "$REGION" --log-group-name "$LOG_GROUP" 2>/dev/null || true
+aws logs put-retention-policy --region "$REGION" --log-group-name "$LOG_GROUP" --retention-in-days 30
 
-echo "Using AMI: $AMI_ID"
+for attempt in {1..18}; do
+  ping_status="$(aws ssm describe-instance-information --region "$REGION" --filters Key=InstanceIds,Values="$INSTANCE_ID" --query 'InstanceInformationList[0].PingStatus' --output text)"
+  [[ "$ping_status" == "Online" ]] && break
+  sleep 10
+done
+if [[ "${ping_status:-}" != "Online" ]]; then
+  echo "SSM did not become online for $INSTANCE_ID" >&2
+  exit 2
+fi
 
-# Launch EC2 instance
-echo "Launching EC2 instance..."
-INSTANCE_ID=$(aws ec2 run-instances \
-    --image-id "$AMI_ID" \
-    --count 1 \
-    --instance-type "$INSTANCE_TYPE" \
-    --key-name "$KEY_NAME" \
-    --security-group-ids "$SG_ID" \
-    --user-data file://user-data.sh \
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=ai-markdown-proxy}]" \
-    --region "$REGION" \
-    --query 'Instances[0].InstanceId' --output text)
+command_id="$(aws ssm send-command \
+  --region "$REGION" \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name AWS-RunShellScript \
+  --comment "Deploy Motor Inn AI-readable mirror" \
+  --parameters commands="[
+    \"set -euo pipefail\",
+    \"if [ ! -d /opt/ai-markdown-proxy/.git ]; then git clone $REPOSITORY /opt/ai-markdown-proxy; fi\",
+    \"git -C /opt/ai-markdown-proxy fetch origin main\",
+    \"git -C /opt/ai-markdown-proxy reset --hard origin/main\",
+    \"docker build --pull -t ai-markdown-proxy:production /opt/ai-markdown-proxy\",
+    \"docker stop ai-markdown-proxy 2>/dev/null || true\",
+    \"docker rm ai-markdown-proxy 2>/dev/null || true\",
+    \"docker run -d --name ai-markdown-proxy --restart unless-stopped -p 80:8080 --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$LOG_GROUP --log-opt awslogs-create-group=false ai-markdown-proxy:production\",
+    \"curl -fsS http://127.0.0.1/__health\",
+    \"curl -fsS http://127.0.0.1/__health/full\"
+  ]" \
+  --query 'Command.CommandId' --output text)"
 
-echo "Instance ID: $INSTANCE_ID"
-echo "Waiting for instance to be running..."
-aws ec2 wait instance-running --instance-ids "$INSTANCE_ID" --region "$REGION"
+aws ssm wait command-executed --region "$REGION" --command-id "$command_id" --instance-id "$INSTANCE_ID"
+aws ssm get-command-invocation --region "$REGION" --command-id "$command_id" --instance-id "$INSTANCE_ID" --output json
 
-# Get public IP
-PUBLIC_IP=$(aws ec2 describe-instances \
-    --instance-ids "$INSTANCE_ID" \
-    --region "$REGION" \
-    --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+sg_id="$(aws ec2 describe-instances --region "$REGION" --instance-ids "$INSTANCE_ID" --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' --output text)"
+aws ec2 revoke-security-group-ingress --region "$REGION" --group-id "$sg_id" --protocol tcp --port 22 --cidr 0.0.0.0/0 2>/dev/null || true
 
-echo ""
-echo "=== Deployment Complete ==="
-echo "Instance ID: $INSTANCE_ID"
-echo "Public IP: $PUBLIC_IP"
-echo "URL: http://$PUBLIC_IP"
-echo ""
-echo "SSH: ssh -i $KEY_FILE ec2-user@$PUBLIC_IP"
-echo ""
-echo "To check status:"
-echo "  curl http://$PUBLIC_IP/__health"
+allocation_id="$(aws ec2 describe-addresses --region "$REGION" --filters Name=tag:Name,Values=ai-markdown-proxy --query 'Addresses[0].AllocationId' --output text)"
+if [[ -z "$allocation_id" || "$allocation_id" == "None" ]]; then
+  read -r allocation_id public_ip < <(aws ec2 allocate-address --region "$REGION" --domain vpc --tag-specifications 'ResourceType=elastic-ip,Tags=[{Key=Name,Value=ai-markdown-proxy}]' --query '[AllocationId,PublicIp]' --output text)
+else
+  public_ip="$(aws ec2 describe-addresses --region "$REGION" --allocation-ids "$allocation_id" --query 'Addresses[0].PublicIp' --output text)"
+fi
+current_instance="$(aws ec2 describe-addresses --region "$REGION" --allocation-ids "$allocation_id" --query 'Addresses[0].InstanceId' --output text)"
+if [[ "$current_instance" != "$INSTANCE_ID" ]]; then
+  aws ec2 associate-address --region "$REGION" --instance-id "$INSTANCE_ID" --allocation-id "$allocation_id" --allow-reassociation >/dev/null
+fi
+
+printf '{"status":"ok","instanceId":"%s","elasticIp":"%s","logGroup":"%s"}\n' "$INSTANCE_ID" "$public_ip" "$LOG_GROUP"
