@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html
 import io
 import json
 import logging
@@ -96,7 +97,20 @@ STATIC_FILES = {
     "finance-trade.md",
     "policies.md",
 }
-MACHINE_FILES = STATIC_FILES | {"new-inventory.md", "used-inventory.md", "offers.md", "robots.txt"}
+DISCOVERY_PATHS = (
+    "/",
+    "/llms.txt",
+    "/llms-full.txt",
+    "/dealership.md",
+    "/contact-hours.md",
+    "/service.md",
+    "/finance-trade.md",
+    "/policies.md",
+    "/new-inventory.md",
+    "/used-inventory.md",
+    "/offers.md",
+)
+MACHINE_FILES = STATIC_FILES | {"new-inventory.md", "used-inventory.md", "offers.md", "robots.txt", "sitemap.xml"}
 BOT_MARKERS = {
     "OAI-SearchBot": "openai-search",
     "ChatGPT-User": "openai-user",
@@ -367,6 +381,50 @@ def text_response(body: str, *, max_age: int = 3600) -> Response:
     return response
 
 
+def xml_response(body: str, *, max_age: int = 3600) -> Response:
+    response = Response(body, content_type="application/xml; charset=utf-8")
+    response.headers["Cache-Control"] = f"public, max-age={max_age}"
+    return response
+
+
+def sitemap_xml(site: Site) -> str:
+    urls = "\n".join(
+        f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
+        for path in DISCOVERY_PATHS
+    )
+    return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}\n</urlset>\n'
+
+
+def discovery_html(site: Site) -> str:
+    links = "\n".join(
+        f'        <li><a href="{html.escape(path)}">{html.escape(path)}</a></li>'
+        for path in DISCOVERY_PATHS
+        if path != "/"
+    )
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,follow">
+    <link rel="canonical" href="{html.escape(site.base_url)}">
+    <title>{html.escape(site.name)} AI-readable resources</title>
+  </head>
+  <body>
+    <main>
+      <h1>{html.escape(site.name)} AI-readable resources</h1>
+      <p>Source-backed dealership, inventory, offer, service, and contact information for automated readers.</p>
+      <p><a href="{html.escape(site.base_url)}">Visit the customer website</a></p>
+      <ul>
+{links}
+        <li><a href="/sitemap.xml">/sitemap.xml</a></li>
+      </ul>
+    </main>
+  </body>
+</html>
+"""
+
+
 def robots_txt(site: Site) -> str:
     training_policy = "Allow: /" if ALLOW_TRAINING_CRAWLERS else "Disallow: /"
     return f"""User-agent: *
@@ -392,7 +450,7 @@ User-agent: ClaudeBot
 User-agent: Google-Extended
 {training_policy}
 
-Sitemap: {site.base_url}/sitemap.xml
+Sitemap: https://{site.ai_host}/sitemap.xml
 """
 
 
@@ -463,6 +521,11 @@ def serve_robots() -> Response:
     return text_response(robots_txt(resolve_site()))
 
 
+@app.route("/sitemap.xml")
+def serve_sitemap() -> Response:
+    return xml_response(sitemap_xml(resolve_site()))
+
+
 @app.route("/llms.txt")
 @app.route("/llms-full.txt")
 def serve_llms() -> Response:
@@ -525,7 +588,11 @@ def serve_static_or_proxy(filename: str) -> Response:
 def root() -> Response:
     site = resolve_site()
     if "text/markdown" not in request.headers.get("Accept", ""):
-        return redirect(site.base_url, code=302)
+        response = Response(discovery_html(site), content_type="text/html; charset=utf-8")
+        response.headers["Cache-Control"] = "public, max-age=3600"
+        response.headers["Link"] = f'<{site.base_url}>; rel="canonical"'
+        response.headers["X-Robots-Tag"] = "noindex, follow"
+        return response
     key = hashlib.sha256(f"{site.key}|{site.base_url}".encode()).hexdigest()
     try:
         body = cache_get(_page_cache, key, CACHE_TTL_SECONDS)

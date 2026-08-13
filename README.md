@@ -52,9 +52,12 @@ After DNS resolves, Caddy obtains and renews certificates automatically. Deploy 
 
 The monitor checks each host's full source health, `llms.txt`, inventory, and crawler policy every 15 minutes. It records status, latency, HTTP code, and source freshness in CloudWatch. After two consecutive hard failures it alerts `#seo-monitoring`; it also posts one recovery notice.
 
-The minimal DealerOn discovery files and implementation request are under
-`dealeron-discovery-handoff/`. DealerOn only needs to publish those root files;
-the proxy, dynamic inventory gate, and HTTPS service remain AWS-managed.
+Each `ai.` hostname has its own HTML discovery index, sitemap, crawler policy,
+`llms.txt`, Markdown resources, and health monitoring. Submit each AI sitemap
+directly in Google Search Console after DNS resolves. The optional
+`dealeron-discovery-handoff/` package can improve discovery from the human site,
+but DealerOn participation is not required for the mirror to operate or be
+submitted to search engines.
 
 ## What It Serves
 
@@ -63,6 +66,12 @@ Returns the validated package for the request hostname. Site identities and cont
 
 ### `GET /robots.txt`
 Allows citation/search crawlers. Model-training crawlers remain blocked unless `ALLOW_TRAINING_CRAWLERS=true` is an explicit owner decision.
+
+### `GET /` and `GET /sitemap.xml`
+The root is a crawlable, `noindex,follow` discovery index with a canonical link
+to the matching DealerOn customer site. The sitemap contains only the matching
+AI hostname's machine-readable resources, so the three dealership identities
+remain isolated.
 
 ### `GET /new-inventory.md` and `GET /used-inventory.md`
 Matches the latest DealerVault/Athena inventory export against public DealerOn VDPs and photos. A missing or stale source returns `503`; it never publishes guessed facts.

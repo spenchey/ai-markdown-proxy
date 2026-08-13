@@ -40,6 +40,27 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.headers["Location"], "https://www.motorinnofcarroll.com/aboutus.aspx")
 
+    def test_root_html_is_an_independent_discovery_index(self) -> None:
+        response = self.client.get("/", headers={"Host": "ai.motorinnofcarroll.com"})
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("text/html"))
+        self.assertEqual(response.headers["X-Robots-Tag"], "noindex, follow")
+        self.assertIn('<link rel="canonical" href="https://www.motorinnofcarroll.com">', body)
+        self.assertIn('href="/llms.txt"', body)
+        self.assertIn('href="/sitemap.xml"', body)
+        self.assertNotIn("motorinntoyotaofcarroll.com", body)
+
+    def test_sitemap_lists_only_matching_ai_host_resources(self) -> None:
+        response = self.client.get("/sitemap.xml", headers={"Host": "ai.motorinnofcarroll.com"})
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("application/xml"))
+        self.assertIn("https://ai.motorinnofcarroll.com/llms.txt", body)
+        self.assertIn("https://ai.motorinnofcarroll.com/new-inventory.md", body)
+        self.assertNotIn("www.motorinnofcarroll.com", body)
+        self.assertNotIn("ai.motorinntoyotaofcarroll.com", body)
+
     def test_inventory_is_dealervault_gated_and_price_includes_doc_fee(self) -> None:
         public = [
             {
@@ -89,6 +110,8 @@ class ProxyTests(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertIn("User-agent: OAI-SearchBot\nAllow: /", body)
         self.assertIn("User-agent: GPTBot\nDisallow: /", body)
+        self.assertIn("Sitemap: https://ai.motorinnautogroup.com/sitemap.xml", body)
+        self.assertNotIn("Sitemap: https://www.motorinnautogroup.com", body)
 
     def test_full_health_reports_matched_source_state(self) -> None:
         with patch("server.match_rows", return_value=([{"stock_number": "T1"}], NOW, NOW)):

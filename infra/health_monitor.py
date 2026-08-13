@@ -19,7 +19,7 @@ DOMAINS = tuple(
     ).split(",")
     if domain.strip()
 )
-PATHS = ("/__health/full", "/llms.txt", "/new-inventory.md", "/robots.txt")
+PATHS = ("/__health/full", "/llms.txt", "/new-inventory.md", "/robots.txt", "/sitemap.xml")
 STATE_PARAMETER = os.environ.get("STATE_PARAMETER", "/motorinn/ai-markdown-proxy/health-state")
 SLACK_SECRET_ID = os.environ.get("SLACK_SECRET_ID", "motorinn/ai-markdown-proxy/slack-bot-token")
 SLACK_CHANNEL_ID = os.environ.get("SLACK_CHANNEL_ID", "C0AC3BP5XPF")
@@ -69,6 +69,11 @@ def evaluate_result(path: str, result: dict[str, Any]) -> tuple[bool, str | None
             return False, f"{path} returned an empty document", None
     elif path == "/robots.txt" and content_type != "text/plain":
         return False, f"{path} returned {content_type or 'no content type'}", None
+    elif path == "/sitemap.xml":
+        if content_type != "application/xml":
+            return False, f"{path} returned {content_type or 'no content type'}", None
+        if not body.strip():
+            return False, f"{path} returned an empty document", None
 
     freshness_hours = None
     if path == "/__health/full":

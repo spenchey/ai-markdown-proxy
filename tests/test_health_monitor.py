@@ -15,6 +15,20 @@ class HealthMonitorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("text/plain", error)
 
+    def test_sitemap_requires_xml_content_type_and_body(self) -> None:
+        ok, error, _ = health_monitor.evaluate_result(
+            "/sitemap.xml",
+            {"status": 200, "content_type": "text/html", "body": b"<urlset />"},
+        )
+        self.assertFalse(ok)
+        self.assertIn("text/html", error)
+
+        ok, error, _ = health_monitor.evaluate_result(
+            "/sitemap.xml",
+            {"status": 200, "content_type": "application/xml", "body": b"<urlset />"},
+        )
+        self.assertTrue(ok, error)
+
     def test_full_health_requires_inventory_and_freshness(self) -> None:
         ok, error, freshness = health_monitor.evaluate_result(
             "/__health/full",
