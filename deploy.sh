@@ -8,6 +8,7 @@ INSTANCE_ID="${AI_PROXY_INSTANCE_ID:-i-0cf5041ecb2a0045b}"
 ROLE_NAME="${AI_PROXY_ROLE_NAME:-motorinn-ai-markdown-proxy-role}"
 PROFILE_NAME="${AI_PROXY_PROFILE_NAME:-motorinn-ai-markdown-proxy-profile}"
 LOG_GROUP="${AI_PROXY_LOG_GROUP:-/motorinn/ai-markdown-proxy}"
+CADDY_LOG_GROUP="${AI_PROXY_CADDY_LOG_GROUP:-/motorinn/ai-markdown-proxy/caddy}"
 REPOSITORY="${AI_PROXY_REPOSITORY:-https://github.com/spenchey/ai-markdown-proxy.git}"
 
 tmp_dir="$(mktemp -d)"
@@ -59,6 +60,8 @@ fi
 
 aws logs create-log-group --region "$REGION" --log-group-name "$LOG_GROUP" 2>/dev/null || true
 aws logs put-retention-policy --region "$REGION" --log-group-name "$LOG_GROUP" --retention-in-days 30
+aws logs create-log-group --region "$REGION" --log-group-name "$CADDY_LOG_GROUP" 2>/dev/null || true
+aws logs put-retention-policy --region "$REGION" --log-group-name "$CADDY_LOG_GROUP" --retention-in-days 30
 
 for attempt in {1..18}; do
   ping_status="$(aws ssm describe-instance-information --region "$REGION" --filters Key=InstanceIds,Values="$INSTANCE_ID" --query 'InstanceInformationList[0].PingStatus' --output text)"
@@ -81,11 +84,14 @@ command_id="$(aws ssm send-command \
     \"git -C /opt/ai-markdown-proxy fetch origin main\",
     \"git -C /opt/ai-markdown-proxy reset --hard origin/main\",
     \"docker build --pull -t ai-markdown-proxy:production /opt/ai-markdown-proxy\",
-    \"docker stop ai-markdown-proxy 2>/dev/null || true\",
-    \"docker rm ai-markdown-proxy 2>/dev/null || true\",
-    \"docker run -d --name ai-markdown-proxy --restart unless-stopped -p 80:8080 --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$LOG_GROUP --log-opt awslogs-create-group=false ai-markdown-proxy:production\",
-    \"for attempt in {1..20}; do curl -fsS http://127.0.0.1/__health && break; sleep 1; done\",
-    \"curl -fsS --retry 5 --retry-delay 1 --retry-connrefused http://127.0.0.1/__health/full\"
+    \"docker stop ai-markdown-proxy caddy 2>/dev/null || true\",
+    \"docker rm ai-markdown-proxy caddy 2>/dev/null || true\",
+    \"docker pull caddy:2.10-alpine\",
+    \"mkdir -p /opt/caddy-data /opt/caddy-config\",
+    \"docker run -d --name ai-markdown-proxy --restart unless-stopped -p 127.0.0.1:8080:8080 --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$LOG_GROUP --log-opt awslogs-create-group=false ai-markdown-proxy:production\",
+    \"docker run -d --name caddy --restart unless-stopped --network host -v /opt/ai-markdown-proxy/Caddyfile:/etc/caddy/Caddyfile:ro -v /opt/caddy-data:/data -v /opt/caddy-config:/config --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$CADDY_LOG_GROUP --log-opt awslogs-create-group=false caddy:2.10-alpine\",
+    \"for attempt in {1..20}; do curl -fsS http://127.0.0.1:8080/__health && break; sleep 1; done\",
+    \"curl -fsS --retry 5 --retry-delay 1 --retry-connrefused http://127.0.0.1:8080/__health/full\"
   ]" \
   --query 'Command.CommandId' --output text)"
 
@@ -94,6 +100,8 @@ aws ssm get-command-invocation --region "$REGION" --command-id "$command_id" --i
 
 sg_id="$(aws ec2 describe-instances --region "$REGION" --instance-ids "$INSTANCE_ID" --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' --output text)"
 aws ec2 revoke-security-group-ingress --region "$REGION" --group-id "$sg_id" --protocol tcp --port 22 --cidr 0.0.0.0/0 2>/dev/null || true
+aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$sg_id" --protocol tcp --port 80 --cidr 0.0.0.0/0 2>/dev/null || true
+aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$sg_id" --protocol tcp --port 443 --cidr 0.0.0.0/0 2>/dev/null || true
 
 allocation_id="$(aws ec2 describe-addresses --region "$REGION" --filters Name=tag:Name,Values=ai-markdown-proxy --query 'Addresses[0].AllocationId' --output text)"
 if [[ -z "$allocation_id" || "$allocation_id" == "None" ]]; then
@@ -106,4 +114,4 @@ if [[ "$current_instance" != "$INSTANCE_ID" ]]; then
   aws ec2 associate-address --region "$REGION" --instance-id "$INSTANCE_ID" --allocation-id "$allocation_id" --allow-reassociation >/dev/null
 fi
 
-printf '{"status":"ok","instanceId":"%s","elasticIp":"%s","logGroup":"%s"}\n' "$INSTANCE_ID" "$public_ip" "$LOG_GROUP"
+printf '{"status":"ok","instanceId":"%s","elasticIp":"%s","logGroup":"%s","caddyLogGroup":"%s"}\n' "$INSTANCE_ID" "$public_ip" "$LOG_GROUP" "$CADDY_LOG_GROUP"

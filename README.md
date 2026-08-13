@@ -37,12 +37,20 @@ curl -H "Accept: text/markdown" "http://localhost:8081/?site=motorinnautogroup"
 
 ## Deploy to AWS
 
-`./deploy.sh` updates the existing instance through Systems Manager, attaches least-privilege inventory access, creates a 30-day CloudWatch log group, removes public SSH, and assigns a stable Elastic IP.
+`./deploy.sh` updates the existing instance through Systems Manager, attaches least-privilege inventory access, creates 30-day CloudWatch log groups, removes public SSH, assigns a stable Elastic IP, and runs Caddy for automatic HTTPS renewal. The Flask/Gunicorn application is bound only to `127.0.0.1:8080`; Caddy is the public ingress.
 
 Point these subdomains at the reported Elastic IP:
    - `ai.motorinnautogroup.com` ──► EC2 Public IP
    - `ai.motorinntoyotaofcarroll.com` ──► EC2 Public IP  
    - `ai.motorinnofcarroll.com` ──► EC2 Public IP
+
+After DNS resolves, Caddy obtains and renews certificates automatically. Deploy the external health monitor with:
+
+```bash
+./deploy-monitoring.sh
+```
+
+The monitor checks each host's full source health, `llms.txt`, inventory, and crawler policy every 15 minutes. It records status, latency, HTTP code, and source freshness in CloudWatch. After two consecutive hard failures it alerts `#seo-monitoring`; it also posts one recovery notice.
 
 ## What It Serves
 

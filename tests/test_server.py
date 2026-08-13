@@ -21,6 +21,7 @@ class ProxyTests(unittest.TestCase):
     def test_host_selects_site_specific_validated_content(self) -> None:
         response = self.client.get("/llms.txt", headers={"Host": "ai.motorinnofcarroll.com"})
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("text/markdown"))
         self.assertIn("# Motor Inn of Carroll", response.get_data(as_text=True))
         self.assertIn("https://ai.motorinnofcarroll.com/dealership.md", response.get_data(as_text=True))
         self.assertNotIn("https://www.motorinnofcarroll.com/dealership.md", response.get_data(as_text=True))

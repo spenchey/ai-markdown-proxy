@@ -466,7 +466,7 @@ def serve_robots() -> Response:
 @app.route("/llms.txt")
 @app.route("/llms-full.txt")
 def serve_llms() -> Response:
-    return text_response(static_content(resolve_site(), request.path.lstrip("/")))
+    return markdown_response(static_content(resolve_site(), request.path.lstrip("/")))
 
 
 @app.route("/new-inventory.md")
@@ -503,7 +503,7 @@ def serve_static_or_proxy(filename: str) -> Response:
     site = resolve_site()
     if filename in STATIC_FILES:
         body = static_content(site, filename)
-        return text_response(body) if filename.endswith(".txt") else markdown_response(body, canonical=canonical_url(site, filename))
+        return markdown_response(body, canonical=canonical_url(site, filename))
     wants_markdown = "text/markdown" in request.headers.get("Accept", "") or filename.endswith(".md")
     source_path = filename[:-3] if filename.endswith(".md") else filename
     source_url = canonical_url(site, source_path)
