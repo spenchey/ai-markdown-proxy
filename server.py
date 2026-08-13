@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+"""
+AI Markdown Proxy Server for Motor Inn Auto Group
+Converts DealerOn HTML pages to clean markdown for AI agents.
+
+Serves:
+  GET /llms.txt          → llms.txt for the site root
+  GET /robots.txt        → robots.txt with AI bot allowances
+  GET /<path>            → fetched + converted to markdown
+  GET /__health          → health check
+  GET /__cache/<path>    → cache stats (basic)
+"""
+
+import os
+import re
+import time
+import hashlib
+import logging
+from urllib.parse import urljoin, urlparse, urlunparse
+
+import requests
+from bs4 import BeautifulSoup
+from flask import Flask, request, Response, jsonify
+from markdownify import markdownify
+
+# �─────────────────────────────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+SITES = {
+    "motorinnautogroup": {
+        "name": "Motor Inn Auto Group",
+        "base_url": "https://www.motorinnautogroup.com",
+        "description": "Motor Inn Auto Group: New & Used Toyota & Chevrolet dealer in Carroll, Iowa.",
+    },
+    "motorinntoyota": {
+        "name": "Motor Inn Toyota of Carroll",
+        "base_url": "https://www.motorinntoyotaofcarroll.com",
+        "description": "Motor Inn Toyota of Carroll — new and used Toyota vehicles, parts, and service.",
+    },
+    "motorinnchevy": {
+        "name": "Motor Inn of Carroll (Chevrolet)",
+        "base_url": "https://www.motorinnofcarroll.com",
+        "description": "Motor Inn of Carroll — new and used Chevrolet vehicles, parts, and service.",
+    },
+}
+
+# Default site to serve when hitting root
+DEFAULT_SITE_KEY = "motorinnautogroup"
+
+# Cache time to live (seconds) — 1 hour
+CACHE_TTL = 3600
+
+# Output port
+PORT = int(os.environ.get("PORT", 8080))
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Flask app
+# ─────────────────────────────────────────════────────────────────────────────
+
+app = Flask(__name__)
+logger = logging.getLogger("ai-markdown-proxy")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+# Simple in-memory cache
+_cache: dict[str, dict] = {}
+
+
+def _cache_key(url: str, fmt: str) -> str:
+    return hashlib.md5(f"{url}|{fmt}".encode()).hexdigest()
+
+
+def _cache_get(key: str):
+    entry = _cache.get(key)
+    if entry and (time.time() - entry["time"]) < CACHE_TTL:
+        return entry["data"]
+    return None
+
+
+def _cache_set(key: str, data):
+    _cache[key] = {"time": time.time(), "data": data}
+    # LRU-style: keep only last 500 entries
+    if len(_cache) > 500:
+        oldest = min(_cache, key=lambda k: _cache[k]["time"])
+        del _cache[oldest]
+
+
+def fetch_page(url: str) -> "str | None":
+    """Fetch a URL and return the HTML text, or None on error."""
+    try:
+        headers = {
+            "User-Agent": "AIRPRO/1.0 (AI Markdown Proxy for Motor Inn Auto Group)",
+            "Accept": "text/html,application/xhtml+xml",
+        }
+        resp = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        resp.raise_for_status()
+        return resp.text
+    except Exception as e:
+        logger.error(f"Error fetching {url}: {e}")
+        return None
+
+
+def clean_html_to_markdown(html: str, base_url: str) -> str:
+    """Convert HTML to clean markdown, removing script/style/nav noise."""
+    soup = BeautifulSoup(html, "lxml")
+
+    # Remove unwanted tags entirely
+    for tag in soup.find_all(["script", "style", "noscript", "iframe", "svg", "link", "meta"]):
+        tag.decompose()
+
+    # Remove elements by class/id that are clearly navigation/footer
+    for el in soup.find_all(True):
+        try:
+            cls_val = el.get("class", [])
+            if isinstance(cls_val, list):
+                cls = " ".join(cls_val)
+            else:
+                cls = str(cls_val)
+            el_id = el.get("id", "") or ""
+            if re.search(r"nav|footer|header|sidebar|menu|breadcrumb|social", cls + " " + el_id, re.I):
+                el.decompose()
+        except Exception:
+            pass
+
+    # Convert relative URLs to absolute
+    for img in soup.find_all("img"):
+        src = img.get("src")
+        if src:
+            img["src"] = urljoin(base_url, src)
+
+    for a in soup.find_all("a"):
+        href = a.get("href")
+        if href:
+            a["href"] = urljoin(base_url, href)
+
+    # Convert to markdown
+    body = soup.find("body") or soup
+    md = markdownify(
+        str(body),
+        heading_style="ATX",
+        bullets="-",
+        code_language="",
+    )
+
+    # Collapse excessive blank lines
+    md = re.sub(r"\n{3,}", "\n\n", md)
+    return md.strip()
+
+
+def generate_llms_txt(site_key: str) -> str:
+    """Generate llms.txt for a given site."""
+    site = SITES[site_key]
+    base = site["base_url"]
+
+    lines = [
+        f"# {site['name']} - LLMs.txt",
+        f"# Generated by AI Markdown Proxy",
+        f"# Base URL: {base}",
+        f"# Description: {site['description']}",
+        "",
+        "## About",
+        (f"{site['name']} is a franchised Toyota and Chevrolet dealership serving Carroll, Iowa "
+         "and surrounding communities. We offer new and used vehicle sales, service, parts, and financing."),
+        "",
+        "## Pages (Markdown available via Accept: text/markdown)",
+        "",
+    ]
+
+    # Key pages to list
+    pages = [
+        ("/", "Home page"),
+        ("/new-inventory", "New vehicle inventory"),
+        ("/used-inventory", "Used vehicle inventory"),
+        ("/service", "Service department"),
+        ("/parts", "Parts department"),
+        ("/financing", "Financing and credit resources"),
+        ("/aboutus.aspx", "About us"),
+        ("/hours.aspx", "Hours and directions"),
+        ("/contact.aspx", "Contact information"),
+    ]
+
+    for path, desc in pages:
+        lines.append(f"- {path}: {desc}")
+        lines.append(f"  GET {base}{path} (Accept: text/markdown)")
+
+    lines += [
+        "",
+        "## Notes",
+        "- This site is a DealerOn-powered dealership website.",
+        "- Markdown is generated on-demand by stripping HTML and converting to Markdown.",
+        "- Links are converted to absolute URLs.",
+        "- JavaScript-only widgets (inventory search, quote forms) may not be fully represented in markdown.",
+        "",
+        "## Contact",
+        "- Email: webmaster@motorinnautogroup.com",
+        f"- Website: {base}",
+    ]
+
+    return "\n".join(lines)
+
+
+def generate_robots_txt(base_url: str) -> str:
+    """Generate robots.txt that allows AI bots."""
+    return f"""# robots.txt for AI Markdown Proxy
+# Allow AI agents and search engines
+User-Agent: *
+Allow: /
+Disallow: /__cache
+Disallow: /__health
+
+# Specific AI bots
+User-Agent: GPTBot
+Allow: /
+
+User-Agent: Claude-Web
+Allow: /
+
+User-Agent: PerplexityBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# Sitemap
+Sitemap: {base_url}/sitemap.xml
+"""
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/__health")
+def health():
+    return jsonify({"status": "ok", "sites": list(SITES.keys())})
+
+
+@app.route("/__cache")
+def cache_stats():
+    return jsonify({
+        "cache_size": len(_cache),
+        "cache_keys": list(_cache.keys())[:20],
+    })
+
+
+@app.route("/llms.txt")
+def serve_llms_txt():
+    site_key = request.args.get("site", DEFAULT_SITE_KEY)
+    if site_key not in SITES:
+        site_key = DEFAULT_SITE_KEY
+    return Response(
+        generate_llms_txt(site_key),
+        content_type="text/plain; charset=utf-8",
+    )
+
+
+@app.route("/robots.txt")
+def serve_robots_txt():
+    site_key = request.args.get("site", DEFAULT_SITE_KEY)
+    if site_key not in SITES:
+        site_key = DEFAULT_SITE_KEY
+    base = SITES[site_key]["base_url"]
+    return Response(
+        generate_robots_txt(base),
+        content_type="text/plain; charset=utf-8",
+    )
+
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def proxy(path):
+    """Main proxy: fetch from DealerOn, convert to markdown."""
+
+    site_key = request.args.get("site", DEFAULT_SITE_KEY)
+    if site_key not in SITES:
+        site_key = DEFAULT_SITE_KEY
+
+    site = SITES[site_key]
+    base_url = site["base_url"]
+
+    # Build the full URL
+    if path:
+        full_url = f"{base_url}/{path}"
+    else:
+        full_url = base_url
+
+    # Query string forwarding
+    if request.query_string:
+        full_url += f"?{request.query_string.decode('utf-8')}"
+
+    # Check if client wants markdown
+    accept = request.headers.get("Accept", "")
+    want_markdown = "text/markdown" in accept or "text/plain" in accept
+
+    # Check cache
+    ckey = _cache_key(full_url, "md" if want_markdown else "raw")
+    cached = _cache_get(ckey)
+    if cached:
+        return Response(cached, content_type="text/plain" if want_markdown else "text/html")
+
+    # Fetch the page
+    html = fetch_page(full_url)
+    if html is None:
+        return Response("Error fetching page", status=502)
+
+    if want_markdown:
+        md = clean_html_to_markdown(html, base_url)
+        _cache_set(ckey, md)
+        return Response(md, content_type="text/markdown; charset=utf-8")
+    else:
+        _cache_set(ckey, html)
+        return Response(html, content_type="text/html; charset=utf-8")
+
+
+if __name__ == "__main__":
+    logger.info(f"Starting AI Markdown Proxy on port {PORT}")
+    app.run(host="0.0.0.0", port=PORT, debug=False)
