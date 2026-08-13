@@ -1,17 +1,16 @@
 #!/bin/bash
 # Deploy AI Markdown Proxy to AWS EC2
 # Prerequisites: AWS CLI configured, SSH key pair available
-# Usage: ./deploy.sh [key-pair-name] [instance-type] [region]
+# Usage: ./deploy.sh [instance-type] [region]
 
 set -e
 
-KEY_NAME="${1:-ai-proxy-key}"
-INSTANCE_TYPE="${2:-t3.nano}"
-REGION="${3:-us-east-1}"
-AMI_ID="ami-0c55b159cbfafe1d0"  # Amazon Linux 2 AMI
+INSTANCE_TYPE="${1:-t3.nano}"
+REGION="${2:-us-east-1}"
+KEY_NAME="ai-proxy-key"
+SEC_GROUP="ai-markdown-proxy-sg"
 
 echo "=== AI Markdown Proxy - AWS Deployment ==="
-echo "Key pair: $KEY_NAME"
 echo "Instance type: $INSTANCE_TYPE"
 echo "Region: $REGION"
 echo ""
@@ -19,17 +18,16 @@ echo ""
 # Create security group
 echo "Creating security group..."
 SG_ID=$(aws ec2 create-security-group \
-    --group-name ai-markdown-proxy-sg \
+    --group-name "$SEC_GROUP" \
     --description "Security group for AI Markdown Proxy" \
     --region "$REGION" \
     --query 'GroupId' --output text 2>/dev/null || true)
 
 if [ -z "$SG_ID" ]; then
-    # Group already exists, get its ID
     SG_ID=$(aws ec2 describe-security-groups \
-        --group-names ai-markdown-proxy-sg \
+        --group-names "$SEC_GROUP" \
         --region "$REGION" \
-        --query 'SecurityGroups[0].GroupId' --output text)
+        --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
 fi
 
 echo "Security group ID: $SG_ID"
@@ -57,6 +55,14 @@ if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" --region "$REGION" 2>/de
     chmod 400 "$KEY_FILE"
     echo "Key saved to $KEY_FILE"
 fi
+
+# Get latest Amazon Linux 2023 AMI
+AMI_ID=$(aws ssm get-parameters \
+    --names /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 \
+    --region "$REGION" \
+    --query 'Parameters[0].Value' --output text)
+
+echo "Using AMI: $AMI_ID"
 
 # Launch EC2 instance
 echo "Launching EC2 instance..."
@@ -89,10 +95,5 @@ echo "URL: http://$PUBLIC_IP"
 echo ""
 echo "SSH: ssh -i $KEY_FILE ec2-user@$PUBLIC_IP"
 echo ""
-echo "DNS: ai-markdown-proxy.$REGION.compute.amazonaws.com (if using elastic IP)"
-echo ""
 echo "To check status:"
 echo "  curl http://$PUBLIC_IP/__health"
-echo ""
-echo "To view logs:"
-echo "  ssh -i $KEY_FILE ec2-user@$PUBLIC_IP 'docker logs ai-markdown-proxy'"
