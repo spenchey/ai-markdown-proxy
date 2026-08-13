@@ -11,6 +11,17 @@ RULE_NAME="${AI_PROXY_MONITOR_RULE:-motorinn-ai-markdown-proxy-every-15-minutes}
 SECRET_ID="${AI_PROXY_SLACK_SECRET_ID:-motorinn/ai-markdown-proxy/slack-bot-token}"
 STATE_PARAMETER="${AI_PROXY_STATE_PARAMETER:-/motorinn/ai-markdown-proxy/health-state}"
 SLACK_CHANNEL_ID="${AI_PROXY_SLACK_CHANNEL_ID:-C0AC3BP5XPF}"
+RULE_STATE="${AI_PROXY_MONITOR_RULE_STATE:-ENABLED}"
+INVOKE_AFTER_DEPLOY="${AI_PROXY_MONITOR_INVOKE_AFTER_DEPLOY:-true}"
+
+if [[ "$RULE_STATE" != "ENABLED" && "$RULE_STATE" != "DISABLED" ]]; then
+  echo "AI_PROXY_MONITOR_RULE_STATE must be ENABLED or DISABLED" >&2
+  exit 64
+fi
+if [[ "$INVOKE_AFTER_DEPLOY" != "true" && "$INVOKE_AFTER_DEPLOY" != "false" ]]; then
+  echo "AI_PROXY_MONITOR_INVOKE_AFTER_DEPLOY must be true or false" >&2
+  exit 64
+fi
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -88,7 +99,7 @@ else
 fi
 aws lambda wait function-active-v2 --region "$REGION" --function-name "$FUNCTION_NAME"
 
-aws events put-rule --region "$REGION" --name "$RULE_NAME" --schedule-expression 'rate(15 minutes)' --state ENABLED >/dev/null
+aws events put-rule --region "$REGION" --name "$RULE_NAME" --schedule-expression 'rate(15 minutes)' --state "$RULE_STATE" >/dev/null
 function_arn="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${FUNCTION_NAME}"
 aws events put-targets --region "$REGION" --rule "$RULE_NAME" --targets "Id=monitor,Arn=$function_arn" >/dev/null
 aws lambda add-permission --region "$REGION" --function-name "$FUNCTION_NAME" \
@@ -101,6 +112,12 @@ aws cloudwatch put-metric-alarm --region "$REGION" \
   --statistic Sum --period 900 --evaluation-periods 2 --datapoints-to-alarm 2 \
   --threshold 0 --comparison-operator GreaterThanThreshold --treat-missing-data notBreaching
 
-aws lambda invoke --region "$REGION" --function-name "$FUNCTION_NAME" "$tmp_dir/invoke.json" >/dev/null
+aws logs create-log-group --region "$REGION" --log-group-name "/aws/lambda/$FUNCTION_NAME" 2>/dev/null || true
 aws logs put-retention-policy --region "$REGION" --log-group-name "/aws/lambda/$FUNCTION_NAME" --retention-in-days 30
-cat "$tmp_dir/invoke.json"
+
+if [[ "$INVOKE_AFTER_DEPLOY" == "true" ]]; then
+  aws lambda invoke --region "$REGION" --function-name "$FUNCTION_NAME" "$tmp_dir/invoke.json" >/dev/null
+  cat "$tmp_dir/invoke.json"
+else
+  printf '{"status":"staged","function":"%s","ruleState":"%s","invoked":false}\n' "$FUNCTION_NAME" "$RULE_STATE"
+fi
