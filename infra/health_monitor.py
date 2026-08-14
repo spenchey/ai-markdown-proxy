@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlsplit
 
 import boto3
 
@@ -19,7 +20,15 @@ DOMAINS = tuple(
     ).split(",")
     if domain.strip()
 )
-PATHS = ("/__health/full", "/llms.txt", "/new-inventory.md", "/robots.txt", "/sitemap.xml")
+PATHS = (
+    "/__health/full",
+    "/llms.txt",
+    "/llms?query=service&limit=1",
+    "/llms/json?query=service&limit=1",
+    "/new-inventory.md",
+    "/robots.txt",
+    "/sitemap.xml",
+)
 STATE_PARAMETER = os.environ.get("STATE_PARAMETER", "/motorinn/ai-markdown-proxy/health-state")
 SLACK_SECRET_ID = os.environ.get("SLACK_SECRET_ID", "motorinn/ai-markdown-proxy/slack-bot-token")
 SLACK_CHANNEL_ID = os.environ.get("SLACK_CHANNEL_ID", "C0AC3BP5XPF")
@@ -62,25 +71,37 @@ def evaluate_result(path: str, result: dict[str, Any]) -> tuple[bool, str | None
 
     content_type = result["content_type"]
     body = result["body"]
-    if path in ("/llms.txt", "/llms-full.txt") or path.endswith(".md"):
+    endpoint_path = urlsplit(path).path
+    if endpoint_path in ("/llms", "/llms.txt", "/llms-full.txt") or endpoint_path.endswith(".md"):
         if content_type != "text/markdown":
             return False, f"{path} returned {content_type or 'no content type'}", None
         if not body.strip():
             return False, f"{path} returned an empty document", None
-    elif path == "/robots.txt" and content_type != "text/plain":
+    elif endpoint_path == "/llms/json":
+        if content_type != "application/json":
+            return False, f"{path} returned {content_type or 'no content type'}", None
+        try:
+            payload = json.loads(body)
+            if payload.get("schema") != "motorinn.llmsQuery.v1" or int(payload.get("resultCount", 0)) <= 0:
+                return False, f"{path} returned no valid query results", None
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            return False, f"{path} returned invalid query JSON: {exc}", None
+    elif endpoint_path == "/robots.txt" and content_type != "text/plain":
         return False, f"{path} returned {content_type or 'no content type'}", None
-    elif path == "/sitemap.xml":
+    elif endpoint_path == "/sitemap.xml":
         if content_type != "application/xml":
             return False, f"{path} returned {content_type or 'no content type'}", None
         if not body.strip():
             return False, f"{path} returned an empty document", None
 
     freshness_hours = None
-    if path == "/__health/full":
+    if endpoint_path == "/__health/full":
         try:
             health = json.loads(body)
             if health.get("status") != "ok" or int(health.get("matchedInventory", 0)) <= 0:
                 return False, f"{path} reported no healthy matched inventory", None
+            if health.get("agentQuery", {}).get("status") != "ok":
+                return False, f"{path} reported an unhealthy agent query layer", None
             timestamps = [
                 datetime.fromisoformat(str(health[key]).replace("Z", "+00:00"))
                 for key in ("dealerVaultUpdatedAt", "catalogUpdatedAt")

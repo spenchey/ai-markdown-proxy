@@ -64,6 +64,11 @@ submitted to search engines.
 ### `GET /llms.txt` and `GET /llms-full.txt`
 Returns the validated package for the request hostname. Site identities and content are not combined.
 
+### `GET /llms?query=...` and `GET /llms/json?query=...`
+Returns deterministic lexical matches from the matching site's rendered public/static resources. The Markdown and JSON forms use the same ranked result set. `limit` defaults to 5 and accepts 1 through 8; queries are required and limited to 200 characters.
+
+Inventory matches are searched only after the existing DealerVault/public-catalog gate has rendered the public inventory document. Raw DealerVault fields never enter the search corpus. Requests are limited in memory to 60 per minute per client IP. Structured `llms_query` telemetry keeps normal topic terms, redacts common customer identifiers, hashes the sanitized normalized query, and does not record client IPs. Query responses use `Cache-Control: no-store`.
+
 ### `GET /robots.txt`
 Allows citation/search crawlers. Model-training crawlers remain blocked unless `ALLOW_TRAINING_CRAWLERS=true` is an explicit owner decision.
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import datetime, timezone
 
 from infra import health_monitor
 
@@ -30,6 +31,7 @@ class HealthMonitorTests(unittest.TestCase):
         self.assertTrue(ok, error)
 
     def test_full_health_requires_inventory_and_freshness(self) -> None:
+        fresh_timestamp = datetime.now(timezone.utc).isoformat()
         ok, error, freshness = health_monitor.evaluate_result(
             "/__health/full",
             {
@@ -39,14 +41,45 @@ class HealthMonitorTests(unittest.TestCase):
                     {
                         "status": "ok",
                         "matchedInventory": 66,
-                        "dealerVaultUpdatedAt": "2026-08-13T15:09:15+00:00",
-                        "catalogUpdatedAt": "2026-08-12T21:01:48+00:00",
+                        "dealerVaultUpdatedAt": fresh_timestamp,
+                        "catalogUpdatedAt": fresh_timestamp,
+                        "agentQuery": {"status": "ok"},
                     }
                 ).encode(),
             },
         )
         self.assertTrue(ok, error)
         self.assertIsNotNone(freshness)
+
+    def test_agent_query_checks_require_markdown_and_valid_json_results(self) -> None:
+        ok, error, _ = health_monitor.evaluate_result(
+            "/llms?query=service&limit=1",
+            {"status": 200, "content_type": "text/markdown", "body": b"# Results\n\nService"},
+        )
+        self.assertTrue(ok, error)
+
+        ok, error, _ = health_monitor.evaluate_result(
+            "/llms/json?query=service&limit=1",
+            {
+                "status": 200,
+                "content_type": "application/json",
+                "body": json.dumps(
+                    {"schema": "motorinn.llmsQuery.v1", "resultCount": 1, "results": [{"id": "service"}]}
+                ).encode(),
+            },
+        )
+        self.assertTrue(ok, error)
+
+        ok, error, _ = health_monitor.evaluate_result(
+            "/llms/json?query=service&limit=1",
+            {
+                "status": 200,
+                "content_type": "application/json",
+                "body": json.dumps({"schema": "motorinn.llmsQuery.v1", "resultCount": 0, "results": []}).encode(),
+            },
+        )
+        self.assertFalse(ok)
+        self.assertIn("no valid query results", error)
 
     def test_alerts_on_second_failure_and_once_on_recovery(self) -> None:
         host = "ai.motorinnautogroup.com"

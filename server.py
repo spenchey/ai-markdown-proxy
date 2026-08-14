@@ -6,12 +6,16 @@ from __future__ import annotations
 import csv
 import hashlib
 import html
+import ipaddress
 import io
 import json
 import logging
 import os
 import re
+import threading
 import time
+import unicodedata
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -42,6 +46,12 @@ INVENTORY_KEY = os.environ.get(
     "normalized/current_inventory_market/latest/current-inventory-market.json",
 )
 ALLOW_TRAINING_CRAWLERS = os.environ.get("ALLOW_TRAINING_CRAWLERS", "false").lower() == "true"
+QUERY_MAX_CHARS = 200
+QUERY_MAX_RESULTS = 8
+QUERY_DEFAULT_RESULTS = 5
+QUERY_RATE_LIMIT = 60
+QUERY_RATE_WINDOW_SECONDS = 60.0
+QUERY_RATE_MAX_CLIENTS = 10_000
 
 logger = logging.getLogger("ai-markdown-proxy")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -110,7 +120,12 @@ DISCOVERY_PATHS = (
     "/used-inventory.md",
     "/offers.md",
 )
+AGENT_QUERY_EXAMPLES = (
+    "/llms?query=service&limit=3",
+    "/llms/json?query=service&limit=3",
+)
 MACHINE_FILES = STATIC_FILES | {"new-inventory.md", "used-inventory.md", "offers.md", "robots.txt", "sitemap.xml"}
+QUERY_STATIC_FILES = ("dealership.md", "contact-hours.md", "service.md", "finance-trade.md", "policies.md")
 BOT_MARKERS = {
     "OAI-SearchBot": "openai-search",
     "ChatGPT-User": "openai-user",
@@ -125,10 +140,45 @@ app = Flask(__name__)
 _page_cache: dict[str, dict[str, Any]] = {}
 _catalog_cache: dict[str, Any] = {}
 _inventory_cache: dict[str, Any] = {}
+_query_rate_limits: dict[str, deque[float]] = {}
+_query_rate_lock = threading.Lock()
 
 
 class SourceUnavailable(RuntimeError):
     """Raised when a dynamic source cannot pass freshness or data checks."""
+
+
+@dataclass(frozen=True)
+class QueryDocument:
+    id: str
+    title: str
+    body: str
+    canonical_url: str
+    source_url: str
+    source_type: str
+    freshness: str | None = None
+
+
+@dataclass(frozen=True)
+class QueryResult:
+    id: str
+    title: str
+    snippet: str
+    canonical_url: str
+    source_url: str
+    source_type: str
+    freshness: str | None
+
+    def public_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "snippet": self.snippet,
+            "canonicalUrl": self.canonical_url,
+            "sourceUrl": self.source_url,
+            "sourceType": self.source_type,
+            "freshness": self.freshness,
+        }
 
 
 def utc_now() -> datetime:
@@ -169,6 +219,93 @@ def canonical_url(site: Site, path: str) -> str:
     return f"{target}?{query}" if query else target
 
 
+def normalize_query(value: str | None) -> str:
+    if value is None:
+        raise ValueError("query parameter is required")
+    normalized = unicodedata.normalize("NFKC", value)
+    if len(normalized) > QUERY_MAX_CHARS:
+        raise ValueError(f"query must be at most {QUERY_MAX_CHARS} characters")
+    normalized = "".join(" " if unicodedata.category(char).startswith("C") else char for char in normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    if not normalized:
+        raise ValueError("query parameter must not be empty")
+    return normalized
+
+
+def lexical_text(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def lexical_tokens(value: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", lexical_text(value))
+
+
+def query_limit(value: str | None) -> int:
+    if value is None or value == "":
+        return QUERY_DEFAULT_RESULTS
+    try:
+        limit = int(value)
+    except ValueError as exc:
+        raise ValueError(f"limit must be an integer from 1 to {QUERY_MAX_RESULTS}") from exc
+    if not 1 <= limit <= QUERY_MAX_RESULTS:
+        raise ValueError(f"limit must be from 1 to {QUERY_MAX_RESULTS}")
+    return limit
+
+
+def request_client_key() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "").split(",", 1)[0].strip()
+    candidate = forwarded or request.remote_addr or "unknown"
+    try:
+        return str(ipaddress.ip_address(candidate))
+    except ValueError:
+        return "unknown"
+
+
+def query_rate_limit_allowed(client_key: str, now: float | None = None) -> bool:
+    current = time.monotonic() if now is None else now
+    cutoff = current - QUERY_RATE_WINDOW_SECONDS
+    with _query_rate_lock:
+        if client_key not in _query_rate_limits and len(_query_rate_limits) >= QUERY_RATE_MAX_CLIENTS:
+            expired = [key for key, values in _query_rate_limits.items() if not values or values[-1] <= cutoff]
+            for key in expired:
+                del _query_rate_limits[key]
+            if len(_query_rate_limits) >= QUERY_RATE_MAX_CLIENTS:
+                oldest_key = min(_query_rate_limits, key=lambda key: _query_rate_limits[key][-1])
+                del _query_rate_limits[oldest_key]
+        events = _query_rate_limits.setdefault(client_key, deque())
+        while events and events[0] <= cutoff:
+            events.popleft()
+        if len(events) >= QUERY_RATE_LIMIT:
+            return False
+        events.append(current)
+        return True
+
+
+def sanitized_query_for_telemetry(query: str) -> str:
+    sanitized = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[redacted-email]", query, flags=re.I)
+    sanitized = re.sub(r"(?<!\w)(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}(?!\w)", "[redacted-phone]", sanitized)
+    sanitized = re.sub(r"\b[A-HJ-NPR-Z0-9]{17}\b", "[redacted-vin]", sanitized, flags=re.I)
+    sanitized = re.sub(
+        r"\b(?=[A-Z0-9_-]{12,}\b)(?=[A-Z0-9_-]*\d)[A-Z0-9_-]+\b",
+        "[redacted-id]",
+        sanitized,
+        flags=re.I,
+    )
+    sanitized = re.sub(
+        r"\b(?=[A-Za-z]{16,}\b)(?=[A-Za-z]*[A-Z])(?=[A-Za-z]*[a-z])[A-Za-z]+\b",
+        "[redacted-id]",
+        sanitized,
+    )
+    sanitized = re.sub(
+        r"\b(my name is|i am|i'm|this is)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}",
+        lambda match: f"{match.group(1)} [redacted-name]",
+        sanitized,
+        flags=re.I,
+    )
+    return re.sub(r"\s+", " ", sanitized).strip()
+
+
 def cache_get(cache: dict[str, dict[str, Any]], key: str, ttl: int) -> Any | None:
     entry = cache.get(key)
     if entry and (time.time() - entry["cached_at"]) < ttl:
@@ -199,9 +336,11 @@ def fetch_page(url: str) -> str:
 
 def clean_html_to_markdown(html: str, base_url: str) -> str:
     soup = BeautifulSoup(html, "lxml")
-    for tag in soup.find_all(["script", "style", "noscript", "iframe", "svg", "link", "meta"]):
+    for tag in soup.find_all(["script", "style", "noscript", "iframe", "svg", "link", "meta", "nav", "header", "footer", "aside"]):
         tag.decompose()
     for element in soup.find_all(True):
+        if element.attrs is None or element.parent is None:
+            continue
         classes = element.get("class", [])
         class_text = " ".join(classes) if isinstance(classes, list) else str(classes)
         element_id = str(element.get("id", "") or "")
@@ -226,6 +365,28 @@ def static_content(site: Site, filename: str) -> str:
     for machine_file in MACHINE_FILES:
         content = content.replace(f"{site.base_url}/{machine_file}", f"https://{site.ai_host}/{machine_file}")
     return content
+
+
+def content_manifest_generated_at() -> str | None:
+    try:
+        manifest = json.loads((CONTENT_ROOT / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    generated_at = manifest.get("generatedAt")
+    return str(generated_at) if generated_at else None
+
+
+def llms_content(site: Site, filename: str) -> str:
+    body = static_content(site, filename).rstrip()
+    markdown_url = f"https://{site.ai_host}/llms?query=service&limit=3"
+    json_url = f"https://{site.ai_host}/llms/json?query=service&limit=3"
+    nudge = (
+        "## Deterministic agent query\n\n"
+        "Search only this site's rendered public and validated content. Results are excerpts with source links, not generated answers.\n\n"
+        f"- [Markdown query example]({markdown_url})\n"
+        f"- [JSON query example]({json_url})"
+    )
+    return f"{body}\n\n{nudge}\n"
 
 
 def canonical_catalog_link(value: str) -> str:
@@ -366,6 +527,289 @@ def render_offers(site: Site) -> str:
     )
 
 
+def rendered_offers(site: Site) -> str:
+    key = f"offers:{site.key}"
+    body = cache_get(_page_cache, key, 900)
+    if body is None:
+        body = render_offers(site)
+        cache_set(_page_cache, key, body)
+    return body
+
+
+def markdown_title(body: str, fallback: str) -> str:
+    for line in body.splitlines():
+        match = re.match(r"^#{1,6}\s+(.+?)\s*$", line)
+        if match:
+            return markdown_plain_text(match.group(1)) or fallback
+    return fallback
+
+
+def markdown_plain_text(value: str) -> str:
+    value = re.sub(r"!\[([^]]*)\]\([^)]+\)", r"\1", value)
+    value = re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", value)
+    value = re.sub(r"<https?://[^>]+>", "", value)
+    value = re.sub(r"^[#>*+\-\s]+", "", value)
+    value = value.replace("`", "").replace("**", "").replace("__", "")
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def first_public_url(body: str, fallback: str) -> str:
+    match = re.search(r"https?://[^\s)>\]]+", body)
+    return match.group(0) if match else fallback
+
+
+def inventory_freshness(body: str) -> str | None:
+    timestamps = re.findall(r"(?:DealerVault|Public catalog) last updated:\s*([^\s]+)", body)
+    parsed: list[datetime] = []
+    for value in timestamps:
+        try:
+            parsed.append(datetime.fromisoformat(value.replace("Z", "+00:00")))
+        except ValueError:
+            continue
+    return iso_timestamp(min(parsed)) if parsed else None
+
+
+def build_static_query_documents(site: Site) -> list[QueryDocument]:
+    freshness = content_manifest_generated_at()
+    documents: list[QueryDocument] = []
+    for filename in QUERY_STATIC_FILES:
+        body = static_content(site, filename)
+        documents.append(
+            QueryDocument(
+                id=f"{site.key}:{filename.removesuffix('.md')}",
+                title=markdown_title(body, filename),
+                body=body,
+                canonical_url=first_public_url(body, site.base_url),
+                source_url=f"https://{site.ai_host}/{filename}",
+                source_type="static",
+                freshness=freshness,
+            )
+        )
+    return documents
+
+
+def build_query_documents(site: Site) -> list[QueryDocument]:
+    documents = build_static_query_documents(site)
+    for condition in ("new", "used"):
+        filename = f"{condition}-inventory.md"
+        try:
+            body = render_inventory(site, condition)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(json.dumps({"event": "query_source_unavailable", "site": site.key, "sourceType": "inventory", "error": str(exc)}))
+            continue
+        documents.append(
+            QueryDocument(
+                id=f"{site.key}:{condition}-inventory",
+                title=markdown_title(body, filename),
+                body=body,
+                canonical_url=urljoin(site.base_url.rstrip("/") + "/", "searchnew.aspx" if condition == "new" else "searchused.aspx"),
+                source_url=f"https://{site.ai_host}/{filename}",
+                source_type="inventory",
+                freshness=inventory_freshness(body),
+            )
+        )
+    try:
+        offers_body = rendered_offers(site)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(json.dumps({"event": "query_source_unavailable", "site": site.key, "sourceType": "offers", "error": str(exc)}))
+    else:
+        documents.append(
+            QueryDocument(
+                id=f"{site.key}:offers",
+                title=markdown_title(offers_body, "Current offers"),
+                body=offers_body,
+                canonical_url=urljoin(site.base_url.rstrip("/") + "/", site.offers_path.lstrip("/")),
+                source_url=f"https://{site.ai_host}/offers.md",
+                source_type="offers",
+            )
+        )
+    return documents
+
+
+def lexical_score(query: str, document: QueryDocument) -> int:
+    query_text = lexical_text(query)
+    tokens = list(dict.fromkeys(lexical_tokens(query)))
+    if not tokens:
+        return 0
+    title = lexical_text(document.title)
+    body = lexical_text(document.body)
+    score = 0
+    if query_text in title:
+        score += 80
+    if query_text in body:
+        score += 30
+    for token in tokens:
+        score += title.count(token) * 12
+        score += min(body.count(token), 12) * 2
+    combined_tokens = set(lexical_tokens(f"{document.title} {document.body}"))
+    if all(token in combined_tokens for token in tokens):
+        score += 20
+    return score
+
+
+def result_snippet(query: str, document: QueryDocument, max_chars: int = 320) -> str:
+    tokens = list(dict.fromkeys(lexical_tokens(query)))
+    candidates: list[tuple[int, int, str]] = []
+    for index, line in enumerate(document.body.splitlines()):
+        plain = markdown_plain_text(line)
+        if not plain or plain == document.title:
+            continue
+        searchable = lexical_text(plain)
+        score = sum(searchable.count(token) for token in tokens)
+        if tokens and all(token in searchable for token in tokens):
+            score += 5
+        candidates.append((score, -index, plain))
+    if not candidates:
+        return document.title[:max_chars]
+    snippet = max(candidates, key=lambda item: (item[0], item[1], item[2]))[2]
+    if len(snippet) <= max_chars:
+        return snippet
+    return snippet[: max_chars - 1].rstrip() + "..."
+
+
+def rank_query_documents(query: str, documents: list[QueryDocument], limit: int) -> list[QueryResult]:
+    ranked = [(lexical_score(query, document), document) for document in documents]
+    ranked = [(score, document) for score, document in ranked if score > 0]
+    ranked.sort(key=lambda item: (-item[0], item[1].id))
+    return [
+        QueryResult(
+            id=document.id,
+            title=document.title,
+            snippet=result_snippet(query, document),
+            canonical_url=document.canonical_url,
+            source_url=document.source_url,
+            source_type=document.source_type,
+            freshness=document.freshness,
+        )
+        for _, document in ranked[:limit]
+    ]
+
+
+def query_public_content(site: Site, query: str, limit: int) -> list[QueryResult]:
+    return rank_query_documents(query, build_query_documents(site), limit)
+
+
+def query_payload(site: Site, results: list[QueryResult]) -> dict[str, Any]:
+    return {
+        "schema": "motorinn.llmsQuery.v1",
+        "site": {"key": site.key, "name": site.name, "host": site.ai_host},
+        "resultCount": len(results),
+        "noResults": not results,
+        "results": [result.public_dict() for result in results],
+    }
+
+
+def query_markdown(site: Site, results: list[QueryResult]) -> str:
+    lines = [f"# {site.name} query results", "", f"Results: {len(results)}", ""]
+    if not results:
+        lines.extend(["No matching published content was found.", ""])
+    for result in results:
+        lines.extend(
+            [
+                f"## {result.title}",
+                "",
+                result.snippet,
+                "",
+                f"- Result ID: `{result.id}`",
+                f"- Source type: `{result.source_type}`",
+                f"- Source: {result.source_url}",
+                f"- Canonical: {result.canonical_url}",
+            ]
+        )
+        if result.freshness:
+            lines.append(f"- Freshness: {result.freshness}")
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def log_query_telemetry(site: Site, query: str, results: list[QueryResult], started_at: float) -> None:
+    sanitized_query = sanitized_query_for_telemetry(query)
+    logger.info(
+        json.dumps(
+            {
+                "event": "llms_query",
+                "timestamp": iso_timestamp(utc_now()),
+                "sanitizedQuery": sanitized_query,
+                "queryHash": hashlib.sha256(sanitized_query.casefold().encode("utf-8")).hexdigest(),
+                "bot": classify_bot(request.headers.get("User-Agent", "")),
+                "host": request.host.split(":", 1)[0].lower(),
+                "resultCount": len(results),
+                "topResultIds": [result.id for result in results[:3]],
+                "noResults": not results,
+                "latencyMs": round((time.perf_counter() - started_at) * 1000, 1),
+                "site": site.key,
+            },
+            sort_keys=True,
+        )
+    )
+
+
+def parse_agent_query() -> tuple[str, int]:
+    query_values = request.args.getlist("query")
+    if len(query_values) != 1:
+        raise ValueError("exactly one query parameter is required")
+    limit_values = request.args.getlist("limit")
+    if len(limit_values) > 1:
+        raise ValueError("limit must be provided at most once")
+    return normalize_query(query_values[0]), query_limit(limit_values[0] if limit_values else None)
+
+
+def agent_query_error(message: str, status: int, *, as_json: bool) -> Response:
+    if as_json:
+        response = jsonify({"error": message, "status": status})
+        response.status_code = status
+    else:
+        response = markdown_response(f"# Query error\n\n{message}\n", status=status, max_age=0)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+def serve_agent_query(*, as_json: bool) -> Response:
+    if not query_rate_limit_allowed(request_client_key()):
+        response = agent_query_error("query rate limit exceeded", 429, as_json=as_json)
+        response.headers["Retry-After"] = "60"
+        return response
+    started_at = time.perf_counter()
+    try:
+        query, limit = parse_agent_query()
+    except ValueError as exc:
+        return agent_query_error(str(exc), 400, as_json=as_json)
+    site = resolve_site()
+    try:
+        results = query_public_content(site, query, limit)
+    except Exception as exc:  # noqa: BLE001
+        results = []
+        log_query_telemetry(site, query, results, started_at)
+        logger.error(json.dumps({"event": "query_layer_failure", "site": site.key, "error": str(exc)}))
+        return agent_query_error("published query sources are temporarily unavailable", 503, as_json=as_json)
+    log_query_telemetry(site, query, results, started_at)
+    if as_json:
+        response = jsonify(query_payload(site, results))
+    else:
+        response = markdown_response(query_markdown(site, results), max_age=0)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+def agent_query_health() -> dict[str, Any]:
+    checked_sites = []
+    for site in SITES.values():
+        results = rank_query_documents("service", build_static_query_documents(site), 1)
+        if not results:
+            raise SourceUnavailable(f"agent query static canary failed for {site.key}")
+        checked_sites.append(site.ai_host)
+    return {
+        "status": "ok",
+        "checkedSites": sorted(checked_sites),
+        "defaultResults": QUERY_DEFAULT_RESULTS,
+        "maxResults": QUERY_MAX_RESULTS,
+        "maxQueryChars": QUERY_MAX_CHARS,
+        "rateLimitPerMinute": QUERY_RATE_LIMIT,
+    }
+
+
 def markdown_response(body: str, *, canonical: str | None = None, status: int = 200, max_age: int = 3600) -> Response:
     response = Response(body, status=status, content_type="text/markdown; charset=utf-8")
     response.headers["Cache-Control"] = f"public, max-age={max_age}"
@@ -390,7 +834,7 @@ def xml_response(body: str, *, max_age: int = 3600) -> Response:
 def sitemap_xml(site: Site) -> str:
     urls = "\n".join(
         f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
-        for path in DISCOVERY_PATHS
+        for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
     )
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}\n</urlset>\n'
 
@@ -398,7 +842,7 @@ def sitemap_xml(site: Site) -> str:
 def discovery_html(site: Site) -> str:
     links = "\n".join(
         f'        <li><a href="{html.escape(path)}">{html.escape(path)}</a></li>'
-        for path in DISCOVERY_PATHS
+        for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
         if path != "/"
     )
     return f"""<!doctype html>
@@ -475,7 +919,6 @@ def finish_request(response: Response) -> Response:
                 "contentType": response.headers.get("Content-Type", ""),
                 "latencyMs": elapsed_ms,
                 "bot": classify_bot(request.headers.get("User-Agent", "")),
-                "remoteAddress": request.remote_addr,
             },
             sort_keys=True,
         )
@@ -499,12 +942,14 @@ def health() -> Response:
 def full_health() -> Response:
     try:
         rows, catalog_modified, inventory_modified = match_rows()
+        query_health = agent_query_health()
         return jsonify(
             {
                 "status": "ok",
                 "matchedInventory": len(rows),
                 "catalogUpdatedAt": iso_timestamp(catalog_modified),
                 "dealerVaultUpdatedAt": iso_timestamp(inventory_modified),
+                "agentQuery": query_health,
             }
         )
     except Exception as exc:  # noqa: BLE001
@@ -529,7 +974,18 @@ def serve_sitemap() -> Response:
 @app.route("/llms.txt")
 @app.route("/llms-full.txt")
 def serve_llms() -> Response:
-    return markdown_response(static_content(resolve_site(), request.path.lstrip("/")))
+    return markdown_response(llms_content(resolve_site(), request.path.lstrip("/")))
+
+
+@app.route("/llms")
+@app.route("/llms/")
+def serve_llms_query() -> Response:
+    return serve_agent_query(as_json=False)
+
+
+@app.route("/llms/json")
+def serve_llms_query_json() -> Response:
+    return serve_agent_query(as_json=True)
 
 
 @app.route("/new-inventory.md")
@@ -548,12 +1004,8 @@ def serve_inventory() -> Response:
 @app.route("/offers.md")
 def serve_offers() -> Response:
     site = resolve_site()
-    key = f"offers:{site.key}"
     try:
-        body = cache_get(_page_cache, key, 900)
-        if body is None:
-            body = render_offers(site)
-            cache_set(_page_cache, key, body)
+        body = rendered_offers(site)
         canonical = urljoin(site.base_url + "/", site.offers_path.lstrip("/"))
         return markdown_response(body, canonical=canonical, max_age=900)
     except Exception as exc:  # noqa: BLE001

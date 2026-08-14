@@ -15,6 +15,8 @@ class ProxyTests(unittest.TestCase):
         server._page_cache.clear()
         server._catalog_cache.clear()
         server._inventory_cache.clear()
+        with server._query_rate_lock:
+            server._query_rate_limits.clear()
         server.app.config.update(TESTING=True)
         self.client = server.app.test_client()
 
@@ -24,6 +26,7 @@ class ProxyTests(unittest.TestCase):
         self.assertTrue(response.content_type.startswith("text/markdown"))
         self.assertIn("# Motor Inn of Carroll", response.get_data(as_text=True))
         self.assertIn("https://ai.motorinnofcarroll.com/dealership.md", response.get_data(as_text=True))
+        self.assertIn("https://ai.motorinnofcarroll.com/llms?query=service&limit=3", response.get_data(as_text=True))
         self.assertNotIn("https://www.motorinnofcarroll.com/dealership.md", response.get_data(as_text=True))
 
     def test_cached_markdown_keeps_markdown_content_type_and_vary(self) -> None:
@@ -118,6 +121,7 @@ class ProxyTests(unittest.TestCase):
             response = self.client.get("/__health/full")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["matchedInventory"], 1)
+        self.assertEqual(response.get_json()["agentQuery"]["status"], "ok")
 
 
 if __name__ == "__main__":
