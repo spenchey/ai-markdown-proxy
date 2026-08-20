@@ -882,7 +882,8 @@ def gbp_review_operations_html() -> str:
   <body>
     <main>
       <h1>Motor Inn Auto Group GBP Review Operations</h1>
-      <p>This internal Motor Inn Auto Group application lets authorized dealership staff review Google Business Profile feedback and prepare a response.</p>
+      <p>This is the official home page for the Motor Inn Auto Group GBP Review Operations application.</p>
+      <p>The application lets authorized dealership staff read Google Business Profile feedback, prepare a reply for review, and maintain the dealership's local-business presence.</p>
       <p>Every customer-facing reply remains approval-gated. The application does not publish marketing content, send customer campaigns, or expose private customer data on this site.</p>
       <p>Access is limited to Motor Inn Auto Group staff who have been assigned Google Business Profile permissions by the business owner.</p>
       <p>Questions about this application: <a href="mailto:spencer.heywood@motorinnmail.com">spencer.heywood@motorinnmail.com</a>.</p>
