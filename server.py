@@ -869,6 +869,30 @@ def discovery_html(site: Site) -> str:
 """
 
 
+def gbp_review_operations_html() -> str:
+    return """<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,follow">
+    <link rel="canonical" href="https://ai.motorinnautogroup.com/gbp-review-operations">
+    <title>Motor Inn Auto Group GBP Review Operations</title>
+  </head>
+  <body>
+    <main>
+      <h1>Motor Inn Auto Group GBP Review Operations</h1>
+      <p>This internal Motor Inn Auto Group application lets authorized dealership staff review Google Business Profile feedback and prepare a response.</p>
+      <p>Every customer-facing reply remains approval-gated. The application does not publish marketing content, send customer campaigns, or expose private customer data on this site.</p>
+      <p>Access is limited to Motor Inn Auto Group staff who have been assigned Google Business Profile permissions by the business owner.</p>
+      <p>Questions about this application: <a href="mailto:spencer.heywood@motorinnmail.com">spencer.heywood@motorinnmail.com</a>.</p>
+      <p><a href="https://www.motorinnautogroup.com/privacy-policy">Privacy Policy</a> · <a href="https://www.motorinnautogroup.com/terms">Terms of Service</a></p>
+    </main>
+  </body>
+</html>
+"""
+
+
 def robots_txt(site: Site) -> str:
     training_policy = "Allow: /" if ALLOW_TRAINING_CRAWLERS else "Disallow: /"
     return f"""User-agent: *
@@ -1011,6 +1035,17 @@ def serve_offers() -> Response:
     except Exception as exc:  # noqa: BLE001
         logger.error(json.dumps({"event": "offer_source_failure", "site": site.key, "error": str(exc)}))
         return markdown_response(f"# Offers temporarily unavailable\n\n{exc}\n", status=503, max_age=0)
+
+
+@app.route("/gbp-review-operations")
+def gbp_review_operations() -> Response:
+    site = resolve_site()
+    if site.key != "motorinnautogroup":
+        return Response("Not found\n", status=404, content_type="text/plain; charset=utf-8")
+    response = Response(gbp_review_operations_html(), content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["X-Robots-Tag"] = "noindex, follow"
+    return response
 
 
 @app.route("/<path:filename>")
