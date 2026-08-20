@@ -54,6 +54,20 @@ class ProxyTests(unittest.TestCase):
         self.assertIn('href="/sitemap.xml"', body)
         self.assertNotIn("motorinntoyotaofcarroll.com", body)
 
+    def test_gbp_review_operations_page_is_limited_to_motor_inn_auto_group(self) -> None:
+        response = self.client.get("/gbp-review-operations", headers={"Host": "ai.motorinnautogroup.com"})
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("text/html"))
+        self.assertEqual(response.headers["X-Robots-Tag"], "noindex, follow")
+        self.assertIn("Motor Inn Auto Group GBP Review Operations", body)
+        self.assertIn("approval-gated", body)
+        self.assertIn("https://www.motorinnautogroup.com/privacy-policy", body)
+        self.assertIn("https://www.motorinnautogroup.com/terms", body)
+
+        other_site = self.client.get("/gbp-review-operations", headers={"Host": "ai.motorinnofcarroll.com"})
+        self.assertEqual(other_site.status_code, 404)
+
     def test_sitemap_lists_only_matching_ai_host_resources(self) -> None:
         response = self.client.get("/sitemap.xml", headers={"Host": "ai.motorinnofcarroll.com"})
         body = response.get_data(as_text=True)
