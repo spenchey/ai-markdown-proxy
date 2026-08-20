@@ -61,6 +61,8 @@ class ProxyTests(unittest.TestCase):
         self.assertTrue(response.content_type.startswith("text/html"))
         self.assertEqual(response.headers["X-Robots-Tag"], "noindex, follow")
         self.assertIn("Motor Inn Auto Group GBP Review Operations", body)
+        self.assertIn("official home page", body)
+        self.assertIn("Google Business Profile feedback", body)
         self.assertIn("approval-gated", body)
         self.assertIn("https://www.motorinnautogroup.com/privacy-policy", body)
         self.assertIn("https://www.motorinnautogroup.com/terms", body)
