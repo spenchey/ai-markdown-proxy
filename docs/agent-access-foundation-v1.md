@@ -85,11 +85,11 @@ Returns the single Carroll physical location plus the selected website brand con
 
 Returns public service information and the canonical customer journey:
 
-- group: service locations;
+- group: Carroll service page with Chevrolet/Toyota service-journey selection;
 - Chevrolet: external GM Online Service Scheduling handoff;
 - Toyota: DealerOn appointment-request form.
 
-The response must state `capabilityState` as `information_only` for the group location chooser, `external_handoff` for a scheduler handoff, or `requested_only` for a follow-up request. It cannot advertise live slots or confirmed booking.
+The response must state `capabilityState` as `information_only` for the group brand/service-journey chooser at the Carroll location, `external_handoff` for a scheduler handoff, or `requested_only` for a follow-up request. It cannot advertise live slots or confirmed booking.
 
 Motor Inn plans to move to Xtime Schedule by Cox Automotive in September 2026. Motor Inn has one service location in Carroll and three branded website entry points. The runtime therefore has one Carroll Xtime consumer URL and activation gate, while each AI host retains its own stable `/service-scheduler` URL. It reports the transition as `planned` until an operator supplies a valid `https://consumer.xtime.com/scheduling?...&webkey=...` URL, verifies the Carroll location binding, and activates it. An invalid active configuration fails closed. This is a website handoff seam, not an Xtime appointment API. See `docs/xtime-dealeron-integration.md`.
 
