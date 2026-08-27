@@ -317,7 +317,7 @@
       "label": "_available_read_operations()",
       "file_type": "code",
       "source_file": "agent_access.py",
-      "source_location": "L433",
+      "source_location": "L434",
       "_origin": "ast",
       "id": "agent_access_available_read_operations",
       "community": 1,
@@ -327,7 +327,7 @@
       "label": "_valid_xtime_url()",
       "file_type": "code",
       "source_file": "agent_access.py",
-      "source_location": "L445",
+      "source_location": "L446",
       "_origin": "ast",
       "id": "agent_access_valid_xtime_url",
       "community": 1,
@@ -337,7 +337,7 @@
       "label": "xtime_configuration_preflight()",
       "file_type": "code",
       "source_file": "agent_access.py",
-      "source_location": "L478",
+      "source_location": "L479",
       "_origin": "ast",
       "id": "agent_access_xtime_configuration_preflight",
       "community": 1,
@@ -347,7 +347,7 @@
       "label": "_xtime_transition()",
       "file_type": "code",
       "source_file": "agent_access.py",
-      "source_location": "L514",
+      "source_location": "L515",
       "_origin": "ast",
       "id": "agent_access_xtime_transition",
       "community": 1,
@@ -357,7 +357,7 @@
       "label": "service_information()",
       "file_type": "code",
       "source_file": "agent_access.py",
-      "source_location": "L534",
+      "source_location": "L535",
       "_origin": "ast",
       "id": "agent_access_service_information",
       "community": 1,
@@ -367,7 +367,7 @@
       "label": "parts_information()",
       "file_type": "code",
       "source_file": "agent_access.py",
-      "source_location": "L572",
+      "source_location": "L573",
       "_origin": "ast",
       "id": "agent_access_parts_information",
       "community": 1,
@@ -407,9 +407,9 @@
       "label": "Return safe, independently evaluated Xtime activation gate state.",
       "file_type": "rationale",
       "source_file": "agent_access.py",
-      "source_location": "L479",
+      "source_location": "L480",
       "_origin": "ast",
-      "id": "agent_access_rationale_479",
+      "id": "agent_access_rationale_480",
       "community": 1,
       "norm_label": "return safe, independently evaluated xtime activation gate state."
     },
@@ -716,7 +716,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "server_validated_documentary_fee",
-      "community": 0,
+      "community": 7,
       "norm_label": "validated_documentary_fee()"
     },
     {
@@ -726,7 +726,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_py_any",
-      "community": 0,
+      "community": 7,
       "norm_label": "any"
     },
     {
@@ -746,7 +746,7 @@
       "source_location": "L175",
       "_origin": "ast",
       "id": "server_sourceunavailable",
-      "community": 0,
+      "community": 7,
       "norm_label": "sourceunavailable"
     },
     {
@@ -756,7 +756,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_py_runtimeerror",
-      "community": 0,
+      "community": 7,
       "norm_label": "runtimeerror"
     },
     {
@@ -796,7 +796,7 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "server_utc_now",
-      "community": 0,
+      "community": 7,
       "norm_label": "utc_now()"
     },
     {
@@ -806,7 +806,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "server_py_datetime",
-      "community": 0,
+      "community": 7,
       "norm_label": "datetime"
     },
     {
@@ -816,7 +816,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "server_iso_timestamp",
-      "community": 0,
+      "community": 7,
       "norm_label": "iso_timestamp()"
     },
     {
@@ -826,7 +826,7 @@
       "source_location": "L220",
       "_origin": "ast",
       "id": "server_source_age_seconds",
-      "community": 0,
+      "community": 7,
       "norm_label": "source_age_seconds()"
     },
     {
@@ -836,7 +836,7 @@
       "source_location": "L224",
       "_origin": "ast",
       "id": "server_classify_bot",
-      "community": 0,
+      "community": 7,
       "norm_label": "classify_bot()"
     },
     {
@@ -846,7 +846,7 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "server_resolve_site",
-      "community": 7,
+      "community": 0,
       "norm_label": "resolve_site()"
     },
     {
@@ -916,7 +916,7 @@
       "source_location": "L284",
       "_origin": "ast",
       "id": "server_request_client_key",
-      "community": 7,
+      "community": 0,
       "norm_label": "request_client_key()"
     },
     {
@@ -926,7 +926,7 @@
       "source_location": "L293",
       "_origin": "ast",
       "id": "server_query_rate_limit_allowed",
-      "community": 7,
+      "community": 0,
       "norm_label": "query_rate_limit_allowed()"
     },
     {
@@ -936,7 +936,7 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "server_sanitized_query_for_telemetry",
-      "community": 0,
+      "community": 7,
       "norm_label": "sanitized_query_for_telemetry()"
     },
     {
@@ -1016,7 +1016,7 @@
       "source_location": "L423",
       "_origin": "ast",
       "id": "server_canonical_catalog_link",
-      "community": 0,
+      "community": 7,
       "norm_label": "canonical_catalog_link()"
     },
     {
@@ -1026,7 +1026,7 @@
       "source_location": "L428",
       "_origin": "ast",
       "id": "server_load_catalog",
-      "community": 0,
+      "community": 7,
       "norm_label": "load_catalog()"
     },
     {
@@ -1036,7 +1036,7 @@
       "source_location": "L446",
       "_origin": "ast",
       "id": "server_load_private_inventory",
-      "community": 0,
+      "community": 7,
       "norm_label": "load_private_inventory()"
     },
     {
@@ -1046,7 +1046,7 @@
       "source_location": "L462",
       "_origin": "ast",
       "id": "server_row_key",
-      "community": 0,
+      "community": 7,
       "norm_label": "row_key()"
     },
     {
@@ -1056,7 +1056,7 @@
       "source_location": "L466",
       "_origin": "ast",
       "id": "server_match_rows",
-      "community": 0,
+      "community": 7,
       "norm_label": "match_rows()"
     },
     {
@@ -1066,7 +1066,7 @@
       "source_location": "L496",
       "_origin": "ast",
       "id": "server_number",
-      "community": 0,
+      "community": 7,
       "norm_label": "number()"
     },
     {
@@ -1076,7 +1076,7 @@
       "source_location": "L503",
       "_origin": "ast",
       "id": "server_display_price",
-      "community": 0,
+      "community": 7,
       "norm_label": "display_price()"
     },
     {
@@ -1086,7 +1086,7 @@
       "source_location": "L508",
       "_origin": "ast",
       "id": "server_render_inventory",
-      "community": 0,
+      "community": 7,
       "norm_label": "render_inventory()"
     },
     {
@@ -1236,7 +1236,7 @@
       "source_location": "L765",
       "_origin": "ast",
       "id": "server_log_query_telemetry",
-      "community": 0,
+      "community": 7,
       "norm_label": "log_query_telemetry()"
     },
     {
@@ -1256,7 +1256,7 @@
       "source_location": "L797",
       "_origin": "ast",
       "id": "server_agent_query_error",
-      "community": 7,
+      "community": 0,
       "norm_label": "agent_query_error()"
     },
     {
@@ -1266,7 +1266,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "response",
-      "community": 7,
+      "community": 0,
       "norm_label": "response"
     },
     {
@@ -1276,7 +1276,7 @@
       "source_location": "L808",
       "_origin": "ast",
       "id": "server_serve_agent_query",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_agent_query()"
     },
     {
@@ -1286,7 +1286,7 @@
       "source_location": "L836",
       "_origin": "ast",
       "id": "server_agent_query_health",
-      "community": 0,
+      "community": 7,
       "norm_label": "agent_query_health()"
     },
     {
@@ -1296,7 +1296,7 @@
       "source_location": "L853",
       "_origin": "ast",
       "id": "server_markdown_response",
-      "community": 7,
+      "community": 0,
       "norm_label": "markdown_response()"
     },
     {
@@ -1306,7 +1306,7 @@
       "source_location": "L862",
       "_origin": "ast",
       "id": "server_text_response",
-      "community": 7,
+      "community": 0,
       "norm_label": "text_response()"
     },
     {
@@ -1316,7 +1316,7 @@
       "source_location": "L868",
       "_origin": "ast",
       "id": "server_xml_response",
-      "community": 7,
+      "community": 0,
       "norm_label": "xml_response()"
     },
     {
@@ -1326,7 +1326,7 @@
       "source_location": "L874",
       "_origin": "ast",
       "id": "server_sitemap_xml",
-      "community": 7,
+      "community": 0,
       "norm_label": "sitemap_xml()"
     },
     {
@@ -1346,7 +1346,7 @@
       "source_location": "L913",
       "_origin": "ast",
       "id": "server_gbp_review_operations_html",
-      "community": 7,
+      "community": 0,
       "norm_label": "gbp_review_operations_html()"
     },
     {
@@ -1356,7 +1356,7 @@
       "source_location": "L938",
       "_origin": "ast",
       "id": "server_robots_txt",
-      "community": 7,
+      "community": 0,
       "norm_label": "robots_txt()"
     },
     {
@@ -1376,7 +1376,7 @@
       "source_location": "L973",
       "_origin": "ast",
       "id": "server_finish_request",
-      "community": 0,
+      "community": 7,
       "norm_label": "finish_request()"
     },
     {
@@ -1386,7 +1386,7 @@
       "source_location": "L995",
       "_origin": "ast",
       "id": "server_api_response",
-      "community": 7,
+      "community": 0,
       "norm_label": "api_response()"
     },
     {
@@ -1396,7 +1396,7 @@
       "source_location": "L1003",
       "_origin": "ast",
       "id": "server_api_error",
-      "community": 7,
+      "community": 0,
       "norm_label": "api_error()"
     },
     {
@@ -1406,7 +1406,7 @@
       "source_location": "L1017",
       "_origin": "ast",
       "id": "server_request_too_large",
-      "community": 7,
+      "community": 0,
       "norm_label": "request_too_large()"
     },
     {
@@ -1416,7 +1416,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "exception",
-      "community": 7,
+      "community": 0,
       "norm_label": "exception"
     },
     {
@@ -1426,7 +1426,7 @@
       "source_location": "L1021",
       "_origin": "ast",
       "id": "server_request_rate_limited",
-      "community": 7,
+      "community": 0,
       "norm_label": "request_rate_limited()"
     },
     {
@@ -1436,7 +1436,7 @@
       "source_location": "L1027",
       "_origin": "ast",
       "id": "server_api_inventory_search",
-      "community": 0,
+      "community": 7,
       "norm_label": "api_inventory_search()"
     },
     {
@@ -1446,7 +1446,7 @@
       "source_location": "L1034",
       "_origin": "ast",
       "id": "server_api_inventory_detail",
-      "community": 0,
+      "community": 7,
       "norm_label": "api_inventory_detail()"
     },
     {
@@ -1466,7 +1466,7 @@
       "source_location": "L1048",
       "_origin": "ast",
       "id": "server_mcp_component_schema",
-      "community": 0,
+      "community": 7,
       "norm_label": "mcp_component_schema()"
     },
     {
@@ -1476,7 +1476,7 @@
       "source_location": "L1066",
       "_origin": "ast",
       "id": "server_mcp_tools",
-      "community": 0,
+      "community": 7,
       "norm_label": "mcp_tools()"
     },
     {
@@ -1486,7 +1486,7 @@
       "source_location": "L1135",
       "_origin": "ast",
       "id": "server_mcp_success",
-      "community": 7,
+      "community": 0,
       "norm_label": "mcp_success()"
     },
     {
@@ -1496,7 +1496,7 @@
       "source_location": "L1139",
       "_origin": "ast",
       "id": "server_mcp_error",
-      "community": 7,
+      "community": 0,
       "norm_label": "mcp_error()"
     },
     {
@@ -1516,7 +1516,7 @@
       "source_location": "L1157",
       "_origin": "ast",
       "id": "server_mcp_call_tool",
-      "community": 0,
+      "community": 7,
       "norm_label": "mcp_call_tool()"
     },
     {
@@ -1536,7 +1536,7 @@
       "source_location": "L1206",
       "_origin": "ast",
       "id": "server_serve_openapi",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_openapi()"
     },
     {
@@ -1546,7 +1546,7 @@
       "source_location": "L1225",
       "_origin": "ast",
       "id": "server_serve_api_vehicles",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_api_vehicles()"
     },
     {
@@ -1556,7 +1556,7 @@
       "source_location": "L1242",
       "_origin": "ast",
       "id": "server_serve_api_vehicle",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_api_vehicle()"
     },
     {
@@ -1566,7 +1566,7 @@
       "source_location": "L1262",
       "_origin": "ast",
       "id": "server_serve_api_locations",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_api_locations()"
     },
     {
@@ -1576,7 +1576,7 @@
       "source_location": "L1274",
       "_origin": "ast",
       "id": "server_serve_api_service_information",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_api_service_information()"
     },
     {
@@ -1586,7 +1586,7 @@
       "source_location": "L1287",
       "_origin": "ast",
       "id": "server_serve_service_scheduler_handoff",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_service_scheduler_handoff()"
     },
     {
@@ -1596,7 +1596,7 @@
       "source_location": "L1305",
       "_origin": "ast",
       "id": "server_serve_api_parts_information",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_api_parts_information()"
     },
     {
@@ -1606,7 +1606,7 @@
       "source_location": "L1315",
       "_origin": "ast",
       "id": "server_serve_mcp",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_mcp()"
     },
     {
@@ -1616,7 +1616,7 @@
       "source_location": "L1401",
       "_origin": "ast",
       "id": "server_health",
-      "community": 7,
+      "community": 0,
       "norm_label": "health()"
     },
     {
@@ -1626,7 +1626,7 @@
       "source_location": "L1413",
       "_origin": "ast",
       "id": "server_full_health",
-      "community": 0,
+      "community": 7,
       "norm_label": "full_health()"
     },
     {
@@ -1636,7 +1636,7 @@
       "source_location": "L1440",
       "_origin": "ast",
       "id": "server_cache_stats",
-      "community": 7,
+      "community": 0,
       "norm_label": "cache_stats()"
     },
     {
@@ -1646,7 +1646,7 @@
       "source_location": "L1445",
       "_origin": "ast",
       "id": "server_serve_robots",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_robots()"
     },
     {
@@ -1656,7 +1656,7 @@
       "source_location": "L1450",
       "_origin": "ast",
       "id": "server_serve_sitemap",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_sitemap()"
     },
     {
@@ -1666,7 +1666,7 @@
       "source_location": "L1456",
       "_origin": "ast",
       "id": "server_serve_llms",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_llms()"
     },
     {
@@ -1676,7 +1676,7 @@
       "source_location": "L1462",
       "_origin": "ast",
       "id": "server_serve_llms_query",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_llms_query()"
     },
     {
@@ -1686,7 +1686,7 @@
       "source_location": "L1467",
       "_origin": "ast",
       "id": "server_serve_llms_query_json",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_llms_query_json()"
     },
     {
@@ -1696,7 +1696,7 @@
       "source_location": "L1473",
       "_origin": "ast",
       "id": "server_serve_inventory",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_inventory()"
     },
     {
@@ -1706,7 +1706,7 @@
       "source_location": "L1485",
       "_origin": "ast",
       "id": "server_serve_offers",
-      "community": 7,
+      "community": 0,
       "norm_label": "serve_offers()"
     },
     {
@@ -1716,7 +1716,7 @@
       "source_location": "L1497",
       "_origin": "ast",
       "id": "server_gbp_review_operations",
-      "community": 7,
+      "community": 0,
       "norm_label": "gbp_review_operations()"
     },
     {
@@ -1746,7 +1746,7 @@
       "source_location": "L176",
       "_origin": "ast",
       "id": "server_rationale_176",
-      "community": 0,
+      "community": 7,
       "norm_label": "raised when a dynamic source cannot pass freshness or data checks."
     },
     {
@@ -1890,10 +1890,30 @@
       "norm_label": ".test_locations_preserve_toyota_phone_ambiguity()"
     },
     {
-      "label": ".test_service_and_parts_report_current_authority_and_planned_xtime_transition()",
+      "label": ".test_location_api_keeps_brand_context_but_returns_one_carroll_location()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
       "source_location": "L309",
+      "_origin": "ast",
+      "id": "tests_test_agent_access_agentaccesstests_test_location_api_keeps_brand_context_but_returns_one_carroll_location",
+      "community": 5,
+      "norm_label": ".test_location_api_keeps_brand_context_but_returns_one_carroll_location()"
+    },
+    {
+      "label": ".test_group_service_fallback_asks_for_brand_journey_not_location()",
+      "file_type": "code",
+      "source_file": "tests/test_agent_access.py",
+      "source_location": "L346",
+      "_origin": "ast",
+      "id": "tests_test_agent_access_agentaccesstests_test_group_service_fallback_asks_for_brand_journey_not_location",
+      "community": 5,
+      "norm_label": ".test_group_service_fallback_asks_for_brand_journey_not_location()"
+    },
+    {
+      "label": ".test_service_and_parts_report_current_authority_and_planned_xtime_transition()",
+      "file_type": "code",
+      "source_file": "tests/test_agent_access.py",
+      "source_location": "L358",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_service_and_parts_report_current_authority_and_planned_xtime_transition",
       "community": 5,
@@ -1903,7 +1923,7 @@
       "label": ".test_all_site_brands_share_the_single_carroll_service_location()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L330",
+      "source_location": "L379",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_all_site_brands_share_the_single_carroll_service_location",
       "community": 5,
@@ -1913,7 +1933,7 @@
       "label": ".test_one_verified_carroll_xtime_configuration_serves_every_site_brand()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L369",
+      "source_location": "L418",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_one_verified_carroll_xtime_configuration_serves_every_site_brand",
       "community": 5,
@@ -1923,7 +1943,7 @@
       "label": ".test_stable_service_handoff_keeps_current_scheduler_until_verified_cutover()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L411",
+      "source_location": "L460",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_stable_service_handoff_keeps_current_scheduler_until_verified_cutover",
       "community": 5,
@@ -1933,7 +1953,7 @@
       "label": ".test_xtime_activation_requires_an_explicit_gate_and_valid_consumer_url()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L453",
+      "source_location": "L502",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_xtime_activation_requires_an_explicit_gate_and_valid_consumer_url",
       "community": 5,
@@ -1943,7 +1963,7 @@
       "label": ".test_invalid_vehicle_inputs_do_not_touch_authoritative_sources()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L497",
+      "source_location": "L546",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_invalid_vehicle_inputs_do_not_touch_authoritative_sources",
       "community": 5,
@@ -1953,7 +1973,7 @@
       "label": ".test_all_public_api_failures_remain_typed_json()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L505",
+      "source_location": "L554",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_all_public_api_failures_remain_typed_json",
       "community": 5,
@@ -1963,7 +1983,7 @@
       "label": ".test_mcp_lists_only_read_tools_and_matches_http_result()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L527",
+      "source_location": "L576",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_mcp_lists_only_read_tools_and_matches_http_result",
       "community": 5,
@@ -1973,7 +1993,7 @@
       "label": ".test_mcp_rejects_untrusted_origins_and_does_not_offer_get_stream()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L584",
+      "source_location": "L633",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_mcp_rejects_untrusted_origins_and_does_not_offer_get_stream",
       "community": 5,
@@ -1983,7 +2003,7 @@
       "label": ".test_mcp_bounds_bodies_rate_limits_discovery_and_validates_request_ids()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L596",
+      "source_location": "L645",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_mcp_bounds_bodies_rate_limits_discovery_and_validates_request_ids",
       "community": 5,
@@ -1993,7 +2013,7 @@
       "label": ".test_all_mcp_read_tools_match_http_including_xtime_transition_states()",
       "file_type": "code",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L617",
+      "source_location": "L666",
       "_origin": "ast",
       "id": "tests_test_agent_access_agentaccesstests_test_all_mcp_read_tools_match_http_including_xtime_transition_states",
       "community": 5,
@@ -4053,7 +4073,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L433",
+      "source_location": "L434",
       "weight": 1.0,
       "source": "agent_access",
       "target": "agent_access_available_read_operations",
@@ -4203,7 +4223,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L572",
+      "source_location": "L573",
       "weight": 1.0,
       "source": "agent_access",
       "target": "agent_access_parts_information",
@@ -4254,7 +4274,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L534",
+      "source_location": "L535",
       "weight": 1.0,
       "source": "agent_access",
       "target": "agent_access_service_information",
@@ -4294,7 +4314,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L445",
+      "source_location": "L446",
       "weight": 1.0,
       "source": "agent_access",
       "target": "agent_access_valid_xtime_url",
@@ -4354,7 +4374,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L478",
+      "source_location": "L479",
       "weight": 1.0,
       "source": "agent_access",
       "target": "agent_access_xtime_configuration_preflight",
@@ -4364,7 +4384,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L514",
+      "source_location": "L515",
       "weight": 1.0,
       "source": "agent_access",
       "target": "agent_access_xtime_transition",
@@ -4578,7 +4598,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L520",
+      "source_location": "L521",
       "weight": 1.0,
       "source": "agent_access_xtime_transition",
       "target": "agent_access_configurationunavailable",
@@ -4677,7 +4697,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L575",
+      "source_location": "L576",
       "weight": 1.0,
       "source": "agent_access_parts_information",
       "target": "agent_access_site_identity",
@@ -4688,7 +4708,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L559",
+      "source_location": "L560",
       "weight": 1.0,
       "source": "agent_access_service_information",
       "target": "agent_access_site_identity",
@@ -4853,7 +4873,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L572",
+      "source_location": "L573",
       "weight": 1.0,
       "source": "agent_access_parts_information",
       "target": "agent_access_py_any",
@@ -4897,7 +4917,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L534",
+      "source_location": "L535",
       "weight": 1.0,
       "source": "agent_access_service_information",
       "target": "agent_access_py_any",
@@ -4974,7 +4994,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L478",
+      "source_location": "L479",
       "weight": 1.0,
       "source": "agent_access_xtime_configuration_preflight",
       "target": "agent_access_py_any",
@@ -4985,7 +5005,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L514",
+      "source_location": "L515",
       "weight": 1.0,
       "source": "agent_access_xtime_transition",
       "target": "agent_access_py_any",
@@ -5414,7 +5434,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L580",
+      "source_location": "L581",
       "weight": 1.0,
       "source": "agent_access_parts_information",
       "target": "agent_access_available_read_operations",
@@ -5425,7 +5445,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L566",
+      "source_location": "L567",
       "weight": 1.0,
       "source": "agent_access_service_information",
       "target": "agent_access_available_read_operations",
@@ -5436,7 +5456,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L485",
+      "source_location": "L486",
       "weight": 1.0,
       "source": "agent_access_xtime_configuration_preflight",
       "target": "agent_access_valid_xtime_url",
@@ -5446,9 +5466,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L479",
+      "source_location": "L480",
       "weight": 1.0,
-      "source": "agent_access_rationale_479",
+      "source": "agent_access_rationale_480",
       "target": "agent_access_xtime_configuration_preflight",
       "confidence_score": 1.0
     },
@@ -5457,7 +5477,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L516",
+      "source_location": "L517",
       "weight": 1.0,
       "source": "agent_access_xtime_transition",
       "target": "agent_access_xtime_configuration_preflight",
@@ -5468,7 +5488,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "agent_access.py",
-      "source_location": "L536",
+      "source_location": "L537",
       "weight": 1.0,
       "source": "agent_access_service_information",
       "target": "agent_access_xtime_transition",
@@ -9811,7 +9831,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L617",
+      "source_location": "L666",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_all_mcp_read_tools_match_http_including_xtime_transition_states",
@@ -9821,7 +9841,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L505",
+      "source_location": "L554",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_all_public_api_failures_remain_typed_json",
@@ -9831,7 +9851,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L330",
+      "source_location": "L379",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_all_site_brands_share_the_single_carroll_service_location",
@@ -9851,6 +9871,16 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
+      "source_location": "L346",
+      "weight": 1.0,
+      "source": "tests_test_agent_access_agentaccesstests",
+      "target": "tests_test_agent_access_agentaccesstests_test_group_service_fallback_asks_for_brand_journey_not_location",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_agent_access.py",
       "source_location": "L198",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
@@ -9861,7 +9891,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L497",
+      "source_location": "L546",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_invalid_vehicle_inputs_do_not_touch_authoritative_sources",
@@ -9875,6 +9905,16 @@
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_inventory_source_failure_uses_typed_api_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_agent_access.py",
+      "source_location": "L309",
+      "weight": 1.0,
+      "source": "tests_test_agent_access_agentaccesstests",
+      "target": "tests_test_agent_access_agentaccesstests_test_location_api_keeps_brand_context_but_returns_one_carroll_location",
       "confidence_score": 1.0
     },
     {
@@ -9901,7 +9941,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L596",
+      "source_location": "L645",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_mcp_bounds_bodies_rate_limits_discovery_and_validates_request_ids",
@@ -9911,7 +9951,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L527",
+      "source_location": "L576",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_mcp_lists_only_read_tools_and_matches_http_result",
@@ -9921,7 +9961,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L584",
+      "source_location": "L633",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_mcp_rejects_untrusted_origins_and_does_not_offer_get_stream",
@@ -9931,7 +9971,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L369",
+      "source_location": "L418",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_one_verified_carroll_xtime_configuration_serves_every_site_brand",
@@ -9961,7 +10001,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L309",
+      "source_location": "L358",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_service_and_parts_report_current_authority_and_planned_xtime_transition",
@@ -9971,7 +10011,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L411",
+      "source_location": "L460",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_stable_service_handoff_keeps_current_scheduler_until_verified_cutover",
@@ -10011,7 +10051,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L453",
+      "source_location": "L502",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests",
       "target": "tests_test_agent_access_agentaccesstests_test_xtime_activation_requires_an_explicit_gate_and_valid_consumer_url",
@@ -10022,7 +10062,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L626",
+      "source_location": "L675",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests_test_all_mcp_read_tools_match_http_including_xtime_transition_states",
       "target": "tests_test_agent_access_agentaccesstests_inventory_sources",
@@ -10044,7 +10084,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_agent_access.py",
-      "source_location": "L550",
+      "source_location": "L599",
       "weight": 1.0,
       "source": "tests_test_agent_access_agentaccesstests_test_mcp_lists_only_read_tools_and_matches_http_result",
       "target": "tests_test_agent_access_agentaccesstests_inventory_sources",
@@ -11968,5 +12008,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "c03e5899ffd1f002ebed19155763d3f4b4524200"
+  "built_at_commit": "e3f09dbf9295febfbc22d88af24725227de48c65"
 }

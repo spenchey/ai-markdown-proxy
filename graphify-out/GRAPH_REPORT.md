@@ -1,16 +1,16 @@
 # Graph Report - ai-markdown-proxy  (2026-08-27)
 
 ## Corpus Check
-- 39 files · ~24,717 words
+- 39 files · ~25,098 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 402 nodes · 752 edges · 40 communities (30 shown, 10 thin omitted)
+- 404 nodes · 754 edges · 40 communities (30 shown, 10 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c03e5899`
+- Built from commit: `e3f09dbf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -57,7 +57,7 @@
 - DealerOn acceptance checklist
 
 ## God Nodes (most connected - your core abstractions)
-1. `AgentAccessTests` - 24 edges
+1. `AgentAccessTests` - 26 edges
 2. `Site` - 22 edges
 3. `resolve_site()` - 20 edges
 4. `vehicle_search()` - 15 edges
@@ -72,9 +72,9 @@
 - `InvalidRequest` --inherits--> `ValueError`  [EXTRACTED]
   agent_access.py →   _Bridges community 1 → community 37_
 - `api_response()` --references--> `Any`  [EXTRACTED]
-  server.py →   _Bridges community 0 → community 7_
+  server.py →   _Bridges community 7 → community 0_
 - `serve_agent_query()` --calls--> `parse_agent_query()`  [EXTRACTED]
-  server.py → server.py  _Bridges community 37 → community 7_
+  server.py → server.py  _Bridges community 37 → community 0_
 
 ## Import Cycles
 - None detected.
@@ -82,8 +82,8 @@
 ## Communities (40 total, 10 thin omitted)
 
 ### Community 0 - "server.py"
-Cohesion: 0.10
-Nodes (62): agent_query_health(), api_inventory_detail(), api_inventory_search(), build_query_documents(), build_static_query_documents(), cache_get(), cache_set(), canonical_catalog_link() (+54 more)
+Cohesion: 0.09
+Nodes (71): Exception, Response, agent_query_error(), api_error(), api_response(), build_query_documents(), build_static_query_documents(), cache_get() (+63 more)
 
 ### Community 1 - "agent_access.py"
 Cohesion: 0.16
@@ -102,8 +102,8 @@ Cohesion: 0.12
 Nodes (15): Agent Access Foundation v1, Confirmed test seams, Current progress, Definition of done for this slice, Deployment boundary, Error contract, `GET /api/v1/locations`, `GET /api/v1/parts-information` (+7 more)
 
 ### Community 7 - "build_static_query_documents"
-Cohesion: 0.13
-Nodes (37): Exception, Response, agent_query_error(), api_error(), api_response(), cache_stats(), gbp_review_operations(), gbp_review_operations_html() (+29 more)
+Cohesion: 0.16
+Nodes (28): agent_query_health(), api_inventory_detail(), api_inventory_search(), canonical_catalog_link(), classify_bot(), display_price(), finish_request(), full_health() (+20 more)
 
 ### Community 9 - "Transaction security contract"
 Cohesion: 0.20
@@ -212,12 +212,10 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `files`, `generatedAt`, `schema` to the rest of the system?**
   _110 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `server.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.09759615384615385 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08626434653831914 - nodes in this community are weakly interconnected._
 - **Should `What It Serves` be split into smaller, more focused modules?**
   _Cohesion score 0.1111111111111111 - nodes in this community are weakly interconnected._
 - **Should `Agent Access Foundation v1` be split into smaller, more focused modules?**
   _Cohesion score 0.125 - nodes in this community are weakly interconnected._
 - **Should `AgentAccessTests` be split into smaller, more focused modules?**
-  _Cohesion score 0.09666666666666666 - nodes in this community are weakly interconnected._
-- **Should `build_static_query_documents` be split into smaller, more focused modules?**
-  _Cohesion score 0.12612612612612611 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08831908831908832 - nodes in this community are weakly interconnected._

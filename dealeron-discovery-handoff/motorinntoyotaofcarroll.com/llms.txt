@@ -15,3 +15,4 @@
 - [Parts information](https://ai.motorinntoyotaofcarroll.com/api/v1/parts-information)
 
 DealerVault/Athena inventory is matched to current public DealerOn vehicle pages before a unit is published. Customer and lead data are never included.
+Following the service link is not a confirmed appointment. A parts request is not a confirmed parts order. Only the authoritative provider may return those confirmed states.

@@ -117,11 +117,11 @@ paths:
   /api/v1/locations:
     get:
       operationId: listLocations
-      summary: Get the public rooftop identity and canonical contact resource
+      summary: Get the Carroll physical location and brand-specific contact resource
       tags: [Locations]
       responses:
         "200":
-          description: Resolved site location information
+          description: One Carroll location with contact routing for the selected brand site
           content:
             application/json:
               schema:
@@ -596,9 +596,11 @@ components:
     Location:
       type: object
       additionalProperties: false
-      required: [site, contactResourceUrl, contacts]
+      required: [location, brandContext, contactResourceUrl, contacts]
       properties:
-        site:
+        location:
+          $ref: "#/components/schemas/ServiceLocation"
+        brandContext:
           $ref: "#/components/schemas/SiteIdentity"
         contactResourceUrl:
           type: string

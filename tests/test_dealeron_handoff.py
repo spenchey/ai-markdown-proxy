@@ -55,16 +55,19 @@ class DealerOnDiscoveryHandoffTests(unittest.TestCase):
 
     def test_discovery_files_link_the_public_agent_contracts(self) -> None:
         for site, host in SITES.items():
-            discovery = (HANDOFF / site / "llms.txt").read_text(encoding="utf-8")
-            for path in (
-                "/openapi.json",
-                "/mcp",
-                "/api/v1/vehicles",
-                "/api/v1/service-information",
-                "/api/v1/parts-information",
-                "/service-scheduler",
-            ):
-                self.assertIn(f"https://{host}{path}", discovery)
+            for filename in ("llms.txt", "llms-full.txt"):
+                discovery = (HANDOFF / site / filename).read_text(encoding="utf-8")
+                for path in (
+                    "/openapi.json",
+                    "/mcp",
+                    "/api/v1/vehicles",
+                    "/api/v1/service-information",
+                    "/api/v1/parts-information",
+                    "/service-scheduler",
+                ):
+                    self.assertIn(f"https://{host}{path}", discovery)
+                self.assertIn("not a confirmed appointment", discovery)
+                self.assertIn("not a confirmed parts order", discovery)
 
 
 if __name__ == "__main__":

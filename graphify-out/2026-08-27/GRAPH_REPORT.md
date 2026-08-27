@@ -1,7 +1,7 @@
 # Graph Report - ai-markdown-proxy  (2026-08-27)
 
 ## Corpus Check
-- 39 files · ~24,658 words
+- 39 files · ~24,717 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary

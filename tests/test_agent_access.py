@@ -306,6 +306,55 @@ class AgentAccessTests(unittest.TestCase):
         self.assertIsNone(contacts["sales"]["number"])
         self.assertEqual(contacts["service"]["number"], "712-513-1068")
 
+    def test_location_api_keeps_brand_context_but_returns_one_carroll_location(self) -> None:
+        responses = [
+            self.client.get("/api/v1/locations", headers={"Host": host}).get_json()
+            for host in (
+                "ai.motorinnautogroup.com",
+                "ai.motorinnofcarroll.com",
+                "ai.motorinntoyotaofcarroll.com",
+            )
+        ]
+
+        self.assertEqual(
+            {response["site"]["key"] for response in responses},
+            {"motorinnautogroup", "motorinnchevy", "motorinntoyota"},
+        )
+        self.assertEqual(
+            {
+                json.dumps(response["locations"][0]["location"], sort_keys=True)
+                for response in responses
+            },
+            {json.dumps({
+                "key": "carroll",
+                "name": "Carroll",
+                "address": {
+                    "streetAddress": "1526 Le Clark Road",
+                    "addressLocality": "Carroll",
+                    "addressRegion": "IA",
+                    "postalCode": "51401",
+                    "addressCountry": "US",
+                },
+                "timeZone": "America/Chicago",
+            }, sort_keys=True)},
+        )
+        self.assertTrue(all(
+            response["locations"][0]["brandContext"] == response["site"]
+            for response in responses
+        ))
+
+    def test_group_service_fallback_asks_for_brand_journey_not_location(self) -> None:
+        response = self.client.get(
+            "/api/v1/service-information",
+            headers={"Host": "ai.motorinnautogroup.com"},
+        ).get_json()
+
+        self.assertEqual(response["capabilityState"], "information_only")
+        self.assertEqual(response["authoritativeSystem"], "Motor Inn Carroll service page")
+        self.assertIn("Carroll location", response["notice"])
+        self.assertIn("Chevrolet or Toyota service journey", response["notice"])
+        self.assertNotIn("choose a rooftop", response["notice"].casefold())
+
     def test_service_and_parts_report_current_authority_and_planned_xtime_transition(self) -> None:
         chevy = self.client.get("/api/v1/service-information", headers={"Host": "ai.motorinnofcarroll.com"}).get_json()
         toyota = self.client.get("/api/v1/service-information", headers={"Host": "ai.motorinntoyotaofcarroll.com"}).get_json()

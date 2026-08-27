@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "tests/test_agent_access.py": {
-    "mtime": 1787847261.5815873,
-    "ast_hash": "12996bce0ea8724c1de7bad600e7c069",
+    "mtime": 1787847589.6240375,
+    "ast_hash": "13ab9914965fedc7c87424464e34f350",
     "semantic_hash": ""
   },
   "tests/test_dealeron_handoff.py": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "openapi/agent-access-v1.yaml": {
-    "mtime": 1787847344.78639,
-    "ast_hash": "123ec4c2f9a1be476bf5518550f3aead",
+    "mtime": 1787847602.0690625,
+    "ast_hash": "039a08fad69cea3276941979486cbf66",
     "semantic_hash": ""
   },
   "requirements.txt": {

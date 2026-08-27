@@ -423,7 +423,8 @@ def locations(site: Any, contact_markdown: str) -> dict[str, Any]:
         "schema": "motorinn.locations.v1",
         "site": site_identity(site),
         "locations": [{
-            "site": site_identity(site),
+            "location": CARROLL_SERVICE_LOCATION,
+            "brandContext": site_identity(site),
             "contactResourceUrl": source_url,
             "contacts": contacts,
         }],
@@ -552,8 +553,8 @@ def service_information(site: Any, environ: Mapping[str, str] | None = None) -> 
     else:
         capability_state = "information_only"
         action_url = f"{site.base_url}/service-locations.html"
-        authority = "Motor Inn service locations"
-        notice = "Choose a rooftop service location before starting its scheduling journey."
+        authority = "Motor Inn Carroll service page"
+        notice = "Choose the Chevrolet or Toyota service journey for the Carroll location."
     return {
         "schema": "motorinn.capabilityInformation.v1",
         "site": site_identity(site),

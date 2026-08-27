@@ -79,7 +79,7 @@ Required behavior:
 
 ### `GET /api/v1/locations`
 
-Returns the resolved rooftop identity and its public canonical location/contact resource. The first implementation may derive its structured fields only where the validated static content has an unambiguous source. Ambiguous Toyota phone numbers must remain unresolved rather than guessed.
+Returns the single Carroll physical location plus the selected website brand context and its public contact resource. Brand identity must not be represented as a separate physical service location. The implementation may derive contact fields only where the validated static content has an unambiguous source. Ambiguous Toyota phone numbers must remain unresolved rather than guessed.
 
 ### `GET /api/v1/service-information`
 
@@ -167,4 +167,4 @@ Proposed behavioral tests:
 - The transaction security contract is documented in `docs/transaction-security-contract.md`.
 - Runtime routes implement the public projection, typed errors, host isolation, staged Xtime handoff, and read-only MCP tools.
 - HTTP and MCP return equivalent service results and equivalent vehicle-search results for the same fixture.
-- The local suite passes 53 tests, including the single-Carroll service-location contract, three brand-specific stable handoffs, DealerOn organization handoff package, and secret-safe one-location Xtime preflight. The branch has not been deployed and no Xtime tenant or appointment was exercised.
+- The local suite passes 55 tests, including the single-Carroll service/location contracts, three brand-specific stable handoffs, DealerOn organization handoff package, and secret-safe one-location Xtime preflight. The branch has not been deployed and no Xtime tenant or appointment was exercised.

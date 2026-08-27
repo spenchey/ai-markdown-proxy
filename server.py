@@ -1108,7 +1108,7 @@ def mcp_tools() -> list[dict[str, Any]]:
         {
             "name": "list_locations",
             "title": "List Motor Inn location information",
-            "description": "Get validated public location and contact resources for this rooftop.",
+            "description": "Get the shared Carroll physical location and validated contact resources for this brand site.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
             "outputSchema": mcp_component_schema("LocationResponse"),
             "annotations": read_annotations,
