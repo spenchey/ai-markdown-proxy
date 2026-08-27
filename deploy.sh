@@ -10,6 +10,7 @@ PROFILE_NAME="${AI_PROXY_PROFILE_NAME:-motorinn-ai-markdown-proxy-profile}"
 LOG_GROUP="${AI_PROXY_LOG_GROUP:-/motorinn/ai-markdown-proxy}"
 CADDY_LOG_GROUP="${AI_PROXY_CADDY_LOG_GROUP:-/motorinn/ai-markdown-proxy/caddy}"
 REPOSITORY="${AI_PROXY_REPOSITORY:-https://github.com/spenchey/ai-markdown-proxy.git}"
+RUNTIME_ENV_PARAMETER="/motorinn/ai-markdown-proxy/runtime-env"
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -28,12 +29,20 @@ JSON
 cat >"$tmp_dir/inventory-read.json" <<'JSON'
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Sid": "ReadPublishedDealerVaultInventory",
-    "Effect": "Allow",
-    "Action": ["s3:GetObject"],
-    "Resource": "arn:aws:s3:::motorinn-dealervault-raw/normalized/current_inventory_market/latest/current-inventory-market.json"
-  }]
+  "Statement": [
+    {
+      "Sid": "ReadPublishedDealerVaultInventory",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::motorinn-dealervault-raw/normalized/current_inventory_market/latest/current-inventory-market.json"
+    },
+    {
+      "Sid": "ReadAgentAccessRuntimeConfiguration",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter"],
+      "Resource": "arn:aws:ssm:*:*:parameter/motorinn/ai-markdown-proxy/*"
+    }
+  ]
 }
 JSON
 
@@ -84,11 +93,14 @@ command_id="$(aws ssm send-command \
     \"git -C /opt/ai-markdown-proxy fetch origin main\",
     \"git -C /opt/ai-markdown-proxy reset --hard origin/main\",
     \"docker build --pull -t ai-markdown-proxy:production /opt/ai-markdown-proxy\",
+    \"install -m 600 /dev/null /opt/ai-markdown-proxy/runtime.env\",
+    \"aws ssm get-parameter --region $REGION --name $RUNTIME_ENV_PARAMETER --with-decryption --query Parameter.Value --output text > /opt/ai-markdown-proxy/runtime.env\",
+    \"chmod 600 /opt/ai-markdown-proxy/runtime.env\",
     \"docker stop ai-markdown-proxy caddy 2>/dev/null || true\",
     \"docker rm ai-markdown-proxy caddy 2>/dev/null || true\",
     \"docker pull caddy:2.10-alpine\",
     \"mkdir -p /opt/caddy-data /opt/caddy-config\",
-    \"docker run -d --name ai-markdown-proxy --restart unless-stopped -p 127.0.0.1:8080:8080 --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$LOG_GROUP --log-opt awslogs-create-group=false ai-markdown-proxy:production\",
+    \"docker run -d --name ai-markdown-proxy --restart unless-stopped --env-file /opt/ai-markdown-proxy/runtime.env -p 127.0.0.1:8080:8080 --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$LOG_GROUP --log-opt awslogs-create-group=false ai-markdown-proxy:production\",
     \"docker run -d --name caddy --restart unless-stopped --network host -v /opt/ai-markdown-proxy/Caddyfile:/etc/caddy/Caddyfile:ro -v /opt/caddy-data:/data -v /opt/caddy-config:/config --log-driver awslogs --log-opt awslogs-region=$REGION --log-opt awslogs-group=$CADDY_LOG_GROUP --log-opt awslogs-create-group=false caddy:2.10-alpine\",
     \"for attempt in {1..20}; do curl -fsS http://127.0.0.1:8080/__health && break; sleep 1; done\",
     \"curl -fsS --retry 5 --retry-delay 1 --retry-connrefused http://127.0.0.1:8080/__health/full\"

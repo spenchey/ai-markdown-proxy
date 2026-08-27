@@ -28,6 +28,11 @@ PATHS = (
     "/new-inventory.md",
     "/robots.txt",
     "/sitemap.xml",
+    "/openapi.json",
+    "/api/v1/vehicles?limit=1",
+    "/api/v1/service-information",
+    "/mcp#initialize",
+    "/mcp#tools-list",
 )
 STATE_PARAMETER = os.environ.get("STATE_PARAMETER", "/motorinn/ai-markdown-proxy/health-state")
 SLACK_SECRET_ID = os.environ.get("SLACK_SECRET_ID", "motorinn/ai-markdown-proxy/slack-bot-token")
@@ -42,9 +47,19 @@ def _aws(service: str):
 
 def _request(url: str) -> dict[str, Any]:
     started = time.monotonic()
+    fragment = urlsplit(url).fragment
+    actual_url = url.split("#", 1)[0]
+    data = None
+    headers = {"Accept": "text/markdown,application/json;q=0.9", "User-Agent": "MotorInn-AI-Mirror-Monitor/1.0"}
+    if fragment in {"initialize", "tools-list"}:
+        method = "initialize" if fragment == "initialize" else "tools/list"
+        params = {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "motorinn-monitor", "version": "1"}} if method == "initialize" else {}
+        data = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
+        headers.update({"Accept": "application/json, text/event-stream", "Content-Type": "application/json", "MCP-Protocol-Version": "2025-11-25"})
     request = urllib.request.Request(
-        url,
-        headers={"Accept": "text/markdown,application/json;q=0.9", "User-Agent": "MotorInn-AI-Mirror-Monitor/1.0"},
+        actual_url,
+        data=data,
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
@@ -93,6 +108,46 @@ def evaluate_result(path: str, result: dict[str, Any]) -> tuple[bool, str | None
             return False, f"{path} returned {content_type or 'no content type'}", None
         if not body.strip():
             return False, f"{path} returned an empty document", None
+    elif endpoint_path == "/openapi.json":
+        try:
+            payload = json.loads(body)
+            if payload.get("openapi") != "3.1.2" or "/api/v1/vehicles" not in payload.get("paths", {}):
+                return False, f"{path} returned an invalid agent-access contract", None
+        except (TypeError, json.JSONDecodeError) as exc:
+            return False, f"{path} returned invalid OpenAPI JSON: {exc}", None
+    elif endpoint_path == "/api/v1/vehicles":
+        try:
+            payload = json.loads(body)
+            result_count = int(payload.get("resultCount", -1))
+            vehicles = payload.get("vehicles")
+            if (
+                payload.get("schema") != "motorinn.vehicleSearch.v1"
+                or not isinstance(payload.get("site"), dict)
+                or not isinstance(vehicles, list)
+                or result_count < 0
+                or result_count != len(vehicles)
+            ):
+                return False, f"{path} returned an invalid vehicle result envelope", None
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            return False, f"{path} returned invalid vehicle JSON: {exc}", None
+    elif endpoint_path == "/api/v1/service-information":
+        try:
+            payload = json.loads(body)
+            if payload.get("schema") != "motorinn.capabilityInformation.v1" or payload.get("capabilityState") not in {"information_only", "external_handoff", "requested_only"}:
+                return False, f"{path} returned invalid service capability state", None
+        except (TypeError, json.JSONDecodeError) as exc:
+            return False, f"{path} returned invalid service JSON: {exc}", None
+    elif endpoint_path == "/mcp":
+        try:
+            payload = json.loads(body).get("result", {})
+            if urlsplit(path).fragment == "initialize" and payload.get("protocolVersion") != "2025-11-25":
+                return False, f"{path} failed MCP initialization", None
+            if urlsplit(path).fragment == "tools-list":
+                names = {tool.get("name") for tool in payload.get("tools", [])}
+                if not {"search_vehicles", "get_service_information"} <= names:
+                    return False, f"{path} returned an incomplete MCP tool list", None
+        except (TypeError, json.JSONDecodeError) as exc:
+            return False, f"{path} returned invalid MCP JSON: {exc}", None
 
     freshness_hours = None
     if endpoint_path == "/__health/full":
@@ -102,6 +157,8 @@ def evaluate_result(path: str, result: dict[str, Any]) -> tuple[bool, str | None
                 return False, f"{path} reported no healthy matched inventory", None
             if health.get("agentQuery", {}).get("status") != "ok":
                 return False, f"{path} reported an unhealthy agent query layer", None
+            if health.get("agentAccess", {}).get("status") != "ok":
+                return False, f"{path} reported an unhealthy agent-access layer", None
             timestamps = [
                 datetime.fromisoformat(str(health[key]).replace("Z", "+00:00"))
                 for key in ("dealerVaultUpdatedAt", "catalogUpdatedAt")

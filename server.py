@@ -10,6 +10,7 @@ import ipaddress
 import io
 import json
 import logging
+import math
 import os
 import re
 import threading
@@ -19,22 +20,41 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import boto3
 import requests
+import yaml
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
 from bs4 import BeautifulSoup
 from flask import Flask, Response, g, jsonify, redirect, request
 from markdownify import markdownify
 
+import agent_access
+
 
 CONTENT_ROOT = Path(__file__).resolve().parent / "content"
+OPENAPI_PATH = Path(__file__).resolve().parent / "openapi" / "agent-access-v1.yaml"
 CACHE_TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", "3600"))
 DYNAMIC_CACHE_TTL_SECONDS = int(os.environ.get("DYNAMIC_CACHE_TTL_SECONDS", "300"))
 MAX_SOURCE_AGE_SECONDS = int(os.environ.get("MAX_SOURCE_AGE_SECONDS", str(36 * 3600)))
-DOC_FEE = float(os.environ.get("MOTORINN_DOCUMENTARY_FEE", "180"))
+
+
+def validated_documentary_fee(value: Any) -> float:
+    try:
+        fee = float(value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("MOTORINN_DOCUMENTARY_FEE must be a finite nonnegative number") from exc
+    if not math.isfinite(fee) or fee < 0:
+        raise RuntimeError("MOTORINN_DOCUMENTARY_FEE must be a finite nonnegative number")
+    return fee
+
+
+DOC_FEE = validated_documentary_fee(os.environ.get("MOTORINN_DOCUMENTARY_FEE", "180"))
 CATALOG_URL = os.environ.get(
     "MOTORINN_PUBLIC_CATALOG_URL",
     "https://motorinn-public-compliance-768571908844.s3.us-east-2.amazonaws.com/"
@@ -119,6 +139,12 @@ DISCOVERY_PATHS = (
     "/new-inventory.md",
     "/used-inventory.md",
     "/offers.md",
+    "/openapi.json",
+    "/api/v1/vehicles",
+    "/api/v1/locations",
+    "/api/v1/service-information",
+    "/api/v1/parts-information",
+    "/mcp",
 )
 AGENT_QUERY_EXAMPLES = (
     "/llms?query=service&limit=3",
@@ -137,6 +163,7 @@ BOT_MARKERS = {
 }
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 256 * 1024
 _page_cache: dict[str, dict[str, Any]] = {}
 _catalog_cache: dict[str, Any] = {}
 _inventory_cache: dict[str, Any] = {}
@@ -384,7 +411,9 @@ def llms_content(site: Site, filename: str) -> str:
         "## Deterministic agent query\n\n"
         "Search only this site's rendered public and validated content. Results are excerpts with source links, not generated answers.\n\n"
         f"- [Markdown query example]({markdown_url})\n"
-        f"- [JSON query example]({json_url})"
+        f"- [JSON query example]({json_url})\n"
+        f"- [OpenAPI 3.1 contract](https://{site.ai_host}/openapi.json)\n"
+        f"- [Read-only MCP endpoint](https://{site.ai_host}/mcp)"
     )
     return f"{body}\n\n{nudge}\n"
 
@@ -435,18 +464,27 @@ def row_key(row: dict[str, Any]) -> tuple[str, str]:
 def match_rows() -> tuple[list[dict[str, Any]], datetime, datetime]:
     catalog_rows, catalog_modified = load_catalog()
     inventory_rows, inventory_modified = load_private_inventory()
-    inventory_index: dict[str, dict[str, Any]] = {}
-    for row in inventory_rows:
+    stock_index: dict[str, set[int]] = {}
+    vin_index: dict[str, set[int]] = {}
+    for index, row in enumerate(inventory_rows):
         stock, vin = row_key(row)
         if stock:
-            inventory_index[stock] = row
+            stock_index.setdefault(stock, set()).add(index)
         if vin:
-            inventory_index[vin] = row
+            vin_index.setdefault(vin, set()).add(index)
     matched: list[dict[str, Any]] = []
     for public_row in catalog_rows:
         stock, vin = row_key(public_row)
-        source_row = inventory_index.get(stock) or inventory_index.get(vin)
-        if source_row and public_row.get("link"):
+        identifier_matches = []
+        if stock:
+            identifier_matches.append(stock_index.get(stock, set()))
+        if vin:
+            identifier_matches.append(vin_index.get(vin, set()))
+        if not identifier_matches:
+            continue
+        candidate_indexes = set.intersection(*identifier_matches)
+        if len(candidate_indexes) == 1 and public_row.get("link"):
+            source_row = inventory_rows[next(iter(candidate_indexes))]
             matched.append({**public_row, "dealerVault": source_row})
     if not matched:
         raise SourceUnavailable("DealerVault and public catalog have no matching active units")
@@ -835,6 +873,7 @@ def sitemap_xml(site: Site) -> str:
     urls = "\n".join(
         f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
         for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
+        if path != "/mcp"
     )
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}\n</urlset>\n'
 
@@ -951,6 +990,393 @@ def finish_request(response: Response) -> Response:
     return response
 
 
+def api_response(payload: dict[str, Any], status: int = 200, *, cache_seconds: int = 0) -> Response:
+    response = jsonify(payload)
+    response.status_code = status
+    response.headers["Cache-Control"] = f"public, max-age={cache_seconds}" if cache_seconds else "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+def api_error(code: str, message: str, status: int, *, retryable: bool = False) -> Response:
+    response = api_response(
+        {
+            "schema": "motorinn.error.v1",
+            "error": {"code": code, "message": message, "retryable": retryable},
+        },
+        status,
+    )
+    if status == 429:
+        response.headers["Retry-After"] = "60"
+    return response
+
+
+@app.errorhandler(413)
+def request_too_large(_error: Exception) -> Response:
+    return api_error("invalid_request", "Request body exceeds 256 KiB", 413)
+
+
+def request_rate_limited() -> Response | None:
+    if query_rate_limit_allowed(request_client_key()):
+        return None
+    return api_error("rate_limited", "Request rate limit exceeded", 429, retryable=True)
+
+
+def api_inventory_search(site: Site, params: dict[str, Any]) -> dict[str, Any]:
+    validated = agent_access.validate_vehicle_search(site, params)
+    documentary_fee = validated_documentary_fee(DOC_FEE)
+    rows, catalog_modified, inventory_modified = match_rows()
+    return agent_access.vehicle_search(site, rows, catalog_modified, inventory_modified, validated, documentary_fee)
+
+
+def api_inventory_detail(site: Site, vin: str) -> dict[str, Any] | None:
+    normalized_vin = agent_access.validate_vehicle_vin(vin)
+    documentary_fee = validated_documentary_fee(DOC_FEE)
+    rows, catalog_modified, inventory_modified = match_rows()
+    return agent_access.vehicle_detail(site, rows, catalog_modified, inventory_modified, normalized_vin, documentary_fee)
+
+
+def openapi_document(site: Site) -> dict[str, Any]:
+    document = yaml.safe_load(OPENAPI_PATH.read_text(encoding="utf-8"))
+    document["servers"] = [{"url": f"https://{site.ai_host}", "description": f"{site.name} read-only mirror"}]
+    return document
+
+
+@lru_cache(maxsize=None)
+def mcp_component_schema(name: str) -> dict[str, Any]:
+    document = yaml.safe_load(OPENAPI_PATH.read_text(encoding="utf-8"))
+    schemas = document["components"]["schemas"]
+
+    def expand(value: Any) -> Any:
+        if isinstance(value, dict):
+            reference = value.get("$ref")
+            if isinstance(reference, str) and reference.startswith("#/components/schemas/"):
+                return expand(schemas[reference.rsplit("/", 1)[-1]])
+            return {key: expand(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [expand(item) for item in value]
+        return value
+
+    return expand(schemas[name])
+
+
+@lru_cache(maxsize=1)
+def mcp_tools() -> list[dict[str, Any]]:
+    read_annotations = {
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+    return [
+        {
+            "name": "search_vehicles",
+            "title": "Search Motor Inn vehicles",
+            "description": "Search active public vehicles matched between DealerVault and the public catalog for this rooftop.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "minLength": 1, "maxLength": 200},
+                    "condition": {"type": "string", "enum": ["new", "used"]},
+                    "make": {"type": "string", "minLength": 1, "maxLength": 80},
+                    "model": {"type": "string", "minLength": 1, "maxLength": 120},
+                    "minPrice": {"type": "number", "minimum": 0},
+                    "maxPrice": {"type": "number", "minimum": 0},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 25, "default": 10},
+                    "cursor": {"type": "string", "minLength": 1, "maxLength": 512},
+                },
+                "additionalProperties": False,
+            },
+            "outputSchema": mcp_component_schema("VehicleSearchResponse"),
+            "annotations": read_annotations,
+        },
+        {
+            "name": "get_vehicle",
+            "title": "Get one Motor Inn vehicle",
+            "description": "Get one active public vehicle by exact VIN for this rooftop.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["vin"],
+                "properties": {"vin": {"type": "string", "pattern": "^[A-HJ-NPR-Za-hj-npr-z0-9]{17}$"}},
+                "additionalProperties": False,
+            },
+            "outputSchema": mcp_component_schema("VehicleResponse"),
+            "annotations": read_annotations,
+        },
+        {
+            "name": "list_locations",
+            "title": "List Motor Inn location information",
+            "description": "Get validated public location and contact resources for this rooftop.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+            "outputSchema": mcp_component_schema("LocationResponse"),
+            "annotations": read_annotations,
+        },
+        {
+            "name": "get_service_information",
+            "title": "Get Motor Inn service information",
+            "description": "Get the current public service journey and its capability state. This tool never confirms an appointment.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+            "outputSchema": mcp_component_schema("CapabilityInformationResponse"),
+            "annotations": read_annotations,
+        },
+        {
+            "name": "get_parts_information",
+            "title": "Get Motor Inn parts information",
+            "description": "Get the current parts-request journey. This tool does not check fitment or stock and does not create an order.",
+            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+            "outputSchema": mcp_component_schema("CapabilityInformationResponse"),
+            "annotations": read_annotations,
+        },
+    ]
+
+
+def mcp_success(request_id: Any, result: dict[str, Any]) -> Response:
+    return api_response({"jsonrpc": "2.0", "id": request_id, "result": result})
+
+
+def mcp_error(request_id: Any, code: int, message: str, status: int = 200, data: dict[str, Any] | None = None) -> Response:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if data:
+        error["data"] = data
+    return api_response({"jsonrpc": "2.0", "id": request_id, "error": error}, status)
+
+
+def mcp_tool_result(payload: dict[str, Any], *, is_error: bool = False) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "content": [{"type": "text", "text": json.dumps(payload, sort_keys=True, separators=(",", ":"))}],
+    }
+    if is_error:
+        result["isError"] = True
+    else:
+        result["structuredContent"] = payload
+    return result
+
+
+def mcp_call_tool(site: Site, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    definition = next((tool for tool in mcp_tools() if tool["name"] == name), None)
+    if definition is None:
+        raise KeyError(name)
+    try:
+        Draft202012Validator(definition["inputSchema"]).validate(arguments)
+    except ValidationError as exc:
+        raise agent_access.InvalidRequest(f"Invalid {name} arguments: {exc.message}") from exc
+    if name == "search_vehicles":
+        allowed = {"query", "condition", "make", "model", "minPrice", "maxPrice", "limit", "cursor"}
+        if set(arguments) - allowed:
+            raise agent_access.InvalidRequest("search_vehicles received an unsupported argument")
+        return api_inventory_search(site, arguments)
+    if name == "get_vehicle":
+        if set(arguments) != {"vin"}:
+            raise agent_access.InvalidRequest("get_vehicle requires only vin")
+        payload = api_inventory_detail(site, str(arguments.get("vin", "")))
+        if payload is None:
+            raise LookupError("Vehicle not found")
+        return payload
+    if name == "list_locations":
+        if arguments:
+            raise agent_access.InvalidRequest("list_locations does not accept arguments")
+        return agent_access.locations(site, static_content(site, "contact-hours.md"))
+    if name == "get_service_information":
+        if arguments:
+            raise agent_access.InvalidRequest("get_service_information does not accept arguments")
+        return agent_access.service_information(site, os.environ)
+    if name == "get_parts_information":
+        if arguments:
+            raise agent_access.InvalidRequest("get_parts_information does not accept arguments")
+        return agent_access.parts_information(site)
+    raise KeyError(name)
+
+
+def mcp_origin_allowed(site: Site) -> bool:
+    origin = request.headers.get("Origin")
+    if not origin:
+        return True
+    configured = {
+        item.strip().rstrip("/")
+        for item in os.environ.get("MOTORINN_MCP_ALLOWED_ORIGINS", "").split(",")
+        if item.strip()
+    }
+    allowed = configured | {f"https://{site.ai_host}", site.base_url.rstrip("/")}
+    return origin.rstrip("/") in allowed
+
+
+@app.route("/openapi.json")
+def serve_openapi() -> Response:
+    site = resolve_site()
+    try:
+        document = openapi_document(site)
+        serialized = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        etag = hashlib.sha256(serialized.encode()).hexdigest()
+        if request.if_none_match.contains(etag):
+            response = Response(status=304)
+        else:
+            response = Response(serialized, content_type="application/json")
+        response.set_etag(etag)
+        response.headers["Cache-Control"] = "public, max-age=3600"
+        return response
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "agent_api_failure", "operation": "get_openapi", "site": site.key, "error": str(exc)}))
+        return api_error("internal_error", "The request could not be completed", 500)
+
+
+@app.route("/api/v1/vehicles")
+def serve_api_vehicles() -> Response:
+    limited = request_rate_limited()
+    if limited:
+        return limited
+    site = resolve_site()
+    try:
+        return api_response(api_inventory_search(site, request.args.to_dict(flat=True)), cache_seconds=60)
+    except agent_access.InvalidRequest as exc:
+        return api_error("invalid_request", str(exc), 400)
+    except SourceUnavailable:
+        return api_error("source_unavailable", "Public inventory sources are temporarily unavailable", 503, retryable=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "agent_api_failure", "operation": "search_vehicles", "site": site.key, "error": str(exc)}))
+        return api_error("internal_error", "The request could not be completed", 500)
+
+
+@app.route("/api/v1/vehicles/<vin>")
+def serve_api_vehicle(vin: str) -> Response:
+    limited = request_rate_limited()
+    if limited:
+        return limited
+    site = resolve_site()
+    try:
+        payload = api_inventory_detail(site, vin)
+        if payload is None:
+            return api_error("not_found", "Vehicle not found", 404)
+        return api_response(payload, cache_seconds=60)
+    except agent_access.InvalidRequest as exc:
+        return api_error("invalid_request", str(exc), 400)
+    except SourceUnavailable:
+        return api_error("source_unavailable", "Public inventory sources are temporarily unavailable", 503, retryable=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "agent_api_failure", "operation": "get_vehicle", "site": site.key, "error": str(exc)}))
+        return api_error("internal_error", "The request could not be completed", 500)
+
+
+@app.route("/api/v1/locations")
+def serve_api_locations() -> Response:
+    site = resolve_site()
+    try:
+        return api_response(agent_access.locations(site, static_content(site, "contact-hours.md")), cache_seconds=3600)
+    except SourceUnavailable:
+        return api_error("source_unavailable", "Public location information is temporarily unavailable", 503, retryable=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "agent_api_failure", "operation": "list_locations", "site": site.key, "error": str(exc)}))
+        return api_error("internal_error", "The request could not be completed", 500)
+
+
+@app.route("/api/v1/service-information")
+def serve_api_service_information() -> Response:
+    site = resolve_site()
+    try:
+        return api_response(agent_access.service_information(site, os.environ), cache_seconds=60)
+    except agent_access.ConfigurationUnavailable as exc:
+        logger.error(json.dumps({"event": "xtime_configuration_invalid", "site": site.key, "error": str(exc)}))
+        return api_error("source_unavailable", "The configured service scheduling handoff is unavailable", 503, retryable=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "agent_api_failure", "operation": "get_service_information", "site": site.key, "error": str(exc)}))
+        return api_error("internal_error", "The request could not be completed", 500)
+
+
+@app.route("/api/v1/parts-information")
+def serve_api_parts_information() -> Response:
+    site = resolve_site()
+    try:
+        return api_response(agent_access.parts_information(site), cache_seconds=3600)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "agent_api_failure", "operation": "get_parts_information", "site": site.key, "error": str(exc)}))
+        return api_error("internal_error", "The request could not be completed", 500)
+
+
+@app.route("/mcp", methods=["GET", "POST"])
+def serve_mcp() -> Response:
+    site = resolve_site()
+    if not mcp_origin_allowed(site):
+        return mcp_error(None, -32000, "Invalid Origin", status=403)
+    if request.method == "GET":
+        response = Response(status=405)
+        response.headers["Allow"] = "POST"
+        return response
+    limited = request_rate_limited()
+    if limited:
+        return limited
+    if not request.is_json:
+        return mcp_error(None, -32700, "Content-Type must be application/json", status=400)
+    message = request.get_json(silent=True)
+    if not isinstance(message, dict) or message.get("jsonrpc") != "2.0" or not isinstance(message.get("method"), str):
+        return mcp_error(message.get("id") if isinstance(message, dict) else None, -32600, "Invalid Request", status=400)
+    has_request_id = "id" in message
+    request_id = message.get("id")
+    if has_request_id and (
+        isinstance(request_id, bool)
+        or not (request_id is None or isinstance(request_id, (str, int, float)))
+    ):
+        return mcp_error(None, -32600, "Invalid Request", status=400)
+    method = message["method"]
+    raw_params = message.get("params", {})
+    if not isinstance(raw_params, dict):
+        return mcp_error(message.get("id"), -32602, "params must be an object")
+    params = raw_params
+    if not has_request_id:
+        return Response(status=202)
+    if method == "initialize":
+        requested_version = params.get("protocolVersion")
+        supported = {"2025-11-25", "2025-06-18"}
+        client_info = params.get("clientInfo")
+        if (
+            not isinstance(requested_version, str)
+            or not isinstance(params.get("capabilities"), dict)
+            or not isinstance(client_info, dict)
+            or not isinstance(client_info.get("name"), str)
+            or not isinstance(client_info.get("version"), str)
+        ):
+            return mcp_error(request_id, -32602, "initialize requires protocolVersion, capabilities, and clientInfo")
+        negotiated_version = requested_version if requested_version in supported else "2025-11-25"
+        return mcp_success(request_id, {
+            "protocolVersion": negotiated_version,
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {"name": "motorinn-agent-access", "version": "1.0.0"},
+        })
+    protocol_version = request.headers.get("MCP-Protocol-Version", "2025-03-26")
+    if protocol_version not in {"2025-11-25", "2025-06-18", "2025-03-26"}:
+        return mcp_error(request_id, -32602, "Unsupported MCP-Protocol-Version", status=400)
+    if method == "ping":
+        return mcp_success(request_id, {})
+    if method == "tools/list":
+        return mcp_success(request_id, {"tools": mcp_tools()})
+    if method != "tools/call":
+        return mcp_error(request_id, -32601, "Method not found")
+    name = params.get("name")
+    raw_arguments = params.get("arguments", {})
+    if not isinstance(raw_arguments, dict):
+        error = {"schema": "motorinn.error.v1", "error": {"code": "invalid_request", "message": "tool arguments must be an object", "retryable": False}}
+        return mcp_success(request_id, mcp_tool_result(error, is_error=True))
+    arguments = raw_arguments
+    try:
+        return mcp_success(request_id, mcp_tool_result(mcp_call_tool(site, str(name), arguments)))
+    except KeyError:
+        return mcp_error(request_id, -32602, "Unknown tool")
+    except agent_access.InvalidRequest as exc:
+        error = {"schema": "motorinn.error.v1", "error": {"code": "invalid_request", "message": str(exc), "retryable": False}}
+        return mcp_success(request_id, mcp_tool_result(error, is_error=True))
+    except agent_access.ConfigurationUnavailable:
+        error = {"schema": "motorinn.error.v1", "error": {"code": "source_unavailable", "message": "The configured service scheduling handoff is unavailable", "retryable": True}}
+        return mcp_success(request_id, mcp_tool_result(error, is_error=True))
+    except LookupError as exc:
+        error = {"schema": "motorinn.error.v1", "error": {"code": "not_found", "message": str(exc), "retryable": False}}
+        return mcp_success(request_id, mcp_tool_result(error, is_error=True))
+    except SourceUnavailable:
+        error = {"schema": "motorinn.error.v1", "error": {"code": "source_unavailable", "message": "Public sources are temporarily unavailable", "retryable": True}}
+        return mcp_success(request_id, mcp_tool_result(error, is_error=True))
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "mcp_tool_failure", "tool": name, "site": site.key, "error": str(exc)}))
+        error = {"schema": "motorinn.error.v1", "error": {"code": "internal_error", "message": "The tool call could not be completed", "retryable": False}}
+        return mcp_success(request_id, mcp_tool_result(error, is_error=True))
+
+
 @app.route("/__health")
 def health() -> Response:
     missing = [
@@ -966,8 +1392,12 @@ def health() -> Response:
 @app.route("/__health/full")
 def full_health() -> Response:
     try:
+        site = resolve_site()
         rows, catalog_modified, inventory_modified = match_rows()
         query_health = agent_query_health()
+        openapi_document(site)
+        service = agent_access.service_information(site, os.environ)
+        tools = mcp_tools()
         return jsonify(
             {
                 "status": "ok",
@@ -975,6 +1405,11 @@ def full_health() -> Response:
                 "catalogUpdatedAt": iso_timestamp(catalog_modified),
                 "dealerVaultUpdatedAt": iso_timestamp(inventory_modified),
                 "agentQuery": query_health,
+                "agentAccess": {
+                    "status": "ok",
+                    "serviceCapabilityState": service["capabilityState"],
+                    "mcpReadToolCount": len(tools),
+                },
             }
         )
     except Exception as exc:  # noqa: BLE001
