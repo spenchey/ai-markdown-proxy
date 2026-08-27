@@ -512,6 +512,7 @@ def service_information(site: Any, environ: Mapping[str, str] | None = None) -> 
         "domain": "service",
         "capabilityState": capability_state,
         "actionUrl": action_url,
+        "stableHandoffUrl": f"https://{site.ai_host}/service-scheduler",
         "authoritativeSystem": authority,
         "availableOperations": _available_read_operations(),
         "notice": notice,

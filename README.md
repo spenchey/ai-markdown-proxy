@@ -96,6 +96,11 @@ Implements a stateless MCP Streamable HTTP endpoint with five read-only tools: `
 
 Motor Inn plans to move service scheduling to Xtime Schedule by Cox Automotive. The public mirror can advertise and activate one validated Xtime consumer URL per rooftop without adding appointment writes:
 
+Each AI host now exposes a permanent `GET /service-scheduler` handoff. Before
+cutover it redirects to that rooftop's current scheduling journey; after a
+verified activation it redirects to the approved Xtime journey. This keeps the
+public address stable while the authoritative scheduling provider changes.
+
 ```text
 MOTORINN_XTIME_GROUP_URL / MOTORINN_XTIME_GROUP_ACTIVE / MOTORINN_XTIME_GROUP_VERIFIED_ROOFTOP
 MOTORINN_XTIME_CHEVY_URL / MOTORINN_XTIME_CHEVY_ACTIVE / MOTORINN_XTIME_CHEVY_VERIFIED_ROOFTOP
@@ -103,6 +108,18 @@ MOTORINN_XTIME_TOYOTA_URL / MOTORINN_XTIME_TOYOTA_ACTIVE / MOTORINN_XTIME_TOYOTA
 ```
 
 Activation defaults to false. An active URL must use `https://consumer.xtime.com/scheduling` and include a non-empty `webkey`; an invalid active configuration fails closed with `503`. Real tenant values must be supplied by Cox/Xtime and must not be committed. DealerOn owns the human-site installation. See `docs/xtime-dealeron-integration.md` for the cutover and rollback contract.
+
+Operators can validate the gates without printing provider URLs or webkeys:
+
+```bash
+.venv/bin/python tools/xtime_preflight.py --require configured
+.venv/bin/python tools/xtime_preflight.py --require verified
+.venv/bin/python tools/xtime_preflight.py --require active
+```
+
+The command exits `0` only when every rooftop satisfies the requested stage;
+otherwise it exits `2` with safe JSON status. It never tests or claims that an
+appointment can be written.
 
 ### `GET /<path>` with `Accept: text/markdown`
 Fetches the equivalent canonical DealerOn page and returns `text/markdown`. Normal browser requests redirect to the canonical human page.

@@ -307,6 +307,48 @@ class AgentAccessTests(unittest.TestCase):
         self.assertFalse(parts["availableOperations"]["confirm"])
         self.assertIn("not a stock check", parts["notice"])
 
+    def test_stable_service_handoff_keeps_current_scheduler_until_verified_cutover(self) -> None:
+        current = self.client.get(
+            "/service-scheduler",
+            headers={"Host": "ai.motorinntoyotaofcarroll.com"},
+        )
+
+        self.assertEqual(current.status_code, 302)
+        self.assertEqual(current.headers["Location"], "https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx")
+        self.assertEqual(current.headers["Cache-Control"], "no-store")
+        self.assertEqual(current.headers["Referrer-Policy"], "no-referrer")
+        self.assertEqual(current.headers["X-Robots-Tag"], "noindex, nofollow")
+
+        service = self.client.get(
+            "/api/v1/service-information",
+            headers={"Host": "ai.motorinntoyotaofcarroll.com"},
+        ).get_json()
+        self.assertEqual(service["stableHandoffUrl"], "https://ai.motorinntoyotaofcarroll.com/service-scheduler")
+
+        active_env = {
+            "MOTORINN_XTIME_TOYOTA_URL": "https://consumer.xtime.com/scheduling/?webkey=verified-key",
+            "MOTORINN_XTIME_TOYOTA_ACTIVE": "true",
+            "MOTORINN_XTIME_TOYOTA_VERIFIED_ROOFTOP": "motorinntoyota",
+        }
+        with patch.dict("server.os.environ", active_env, clear=False):
+            active = self.client.get(
+                "/service-scheduler",
+                headers={"Host": "ai.motorinntoyotaofcarroll.com"},
+            )
+        self.assertEqual(active.status_code, 302)
+        self.assertEqual(active.headers["Location"], active_env["MOTORINN_XTIME_TOYOTA_URL"])
+
+        with patch.dict("server.os.environ", {
+            **active_env,
+            "MOTORINN_XTIME_TOYOTA_VERIFIED_ROOFTOP": "wrong-rooftop",
+        }, clear=False):
+            invalid = self.client.get(
+                "/service-scheduler",
+                headers={"Host": "ai.motorinntoyotaofcarroll.com"},
+            )
+        self.assertEqual(invalid.status_code, 503)
+        self.assertEqual(invalid.get_json()["error"]["code"], "source_unavailable")
+
     def test_xtime_activation_requires_an_explicit_gate_and_valid_consumer_url(self) -> None:
         env = {
             "MOTORINN_XTIME_TOYOTA_URL": "https://consumer.xtime.com/scheduling/?webkey=dealer-key",

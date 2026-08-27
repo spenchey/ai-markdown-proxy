@@ -593,6 +593,9 @@ components:
         actionUrl:
           type: string
           format: uri
+        stableHandoffUrl:
+          type: string
+          format: uri
         authoritativeSystem:
           type: string
           minLength: 1

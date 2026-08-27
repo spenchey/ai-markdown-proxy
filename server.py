@@ -144,6 +144,7 @@ DISCOVERY_PATHS = (
     "/api/v1/locations",
     "/api/v1/service-information",
     "/api/v1/parts-information",
+    "/service-scheduler",
     "/mcp",
 )
 AGENT_QUERY_EXAMPLES = (
@@ -413,6 +414,7 @@ def llms_content(site: Site, filename: str) -> str:
         f"- [Markdown query example]({markdown_url})\n"
         f"- [JSON query example]({json_url})\n"
         f"- [OpenAPI 3.1 contract](https://{site.ai_host}/openapi.json)\n"
+        f"- [Stable service scheduler handoff](https://{site.ai_host}/service-scheduler)\n"
         f"- [Read-only MCP endpoint](https://{site.ai_host}/mcp)"
     )
     return f"{body}\n\n{nudge}\n"
@@ -873,7 +875,7 @@ def sitemap_xml(site: Site) -> str:
     urls = "\n".join(
         f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
         for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
-        if path != "/mcp"
+        if path not in {"/mcp", "/service-scheduler"}
     )
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}\n</urlset>\n'
 
@@ -1278,6 +1280,24 @@ def serve_api_service_information() -> Response:
         return api_error("source_unavailable", "The configured service scheduling handoff is unavailable", 503, retryable=True)
     except Exception as exc:  # noqa: BLE001
         logger.error(json.dumps({"event": "agent_api_failure", "operation": "get_service_information", "site": site.key, "error": str(exc)}))
+        return api_error("internal_error", "The request could not be completed", 500)
+
+
+@app.route("/service-scheduler")
+def serve_service_scheduler_handoff() -> Response:
+    site = resolve_site()
+    try:
+        destination = agent_access.service_information(site, os.environ)["actionUrl"]
+        response = redirect(destination, code=302)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+    except agent_access.ConfigurationUnavailable as exc:
+        logger.error(json.dumps({"event": "xtime_configuration_invalid", "site": site.key, "error": str(exc)}))
+        return api_error("source_unavailable", "The configured service scheduling handoff is unavailable", 503, retryable=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "agent_api_failure", "operation": "service_scheduler_handoff", "site": site.key, "error": str(exc)}))
         return api_error("internal_error", "The request could not be completed", 500)
 
 

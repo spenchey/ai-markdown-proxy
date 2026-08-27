@@ -18,6 +18,30 @@ The `webkey` selects dealership configuration. A third party's value must never 
 
 DealerOn advertises online service scheduling through DMS integration and supports third-party website applications. DealerOn remains the owner of the human-site embed/link change; this repository owns only the public AI mirror and its machine-readable capability state.
 
+## Stable Motor Inn handoff
+
+These Motor Inn-owned addresses are safe to publish before the Xtime tenant
+configuration arrives:
+
+```text
+https://ai.motorinnautogroup.com/service-scheduler
+https://ai.motorinnofcarroll.com/service-scheduler
+https://ai.motorinntoyotaofcarroll.com/service-scheduler
+```
+
+Each address is permanently bound to one hostname/site identity. It returns a
+temporary redirect with `Cache-Control: no-store`, `Referrer-Policy:
+no-referrer`, and `X-Robots-Tag: noindex, nofollow`. While Xtime is inactive,
+the target remains the existing rooftop journey. Only a valid Xtime consumer
+URL plus the exact verified rooftop binding and an explicit activation flag can
+change the target. An invalid active configuration returns `503` and never
+falls through to an unverified URL.
+
+`GET /api/v1/service-information` and the corresponding MCP tool expose the
+same address as `stableHandoffUrl`. They continue to describe transaction
+operations as unavailable; following the address is an external browser
+handoff, not an appointment API.
+
 ## Required Cox/Xtime onboarding inputs
 
 Obtain and record outside this repository:
@@ -75,9 +99,30 @@ For each of the three customer sites, DealerOn should:
 5. preserve the existing AI-mirror alternate and footer links;
 6. return the final public URL, site ID, release time, implementation owner, and rollback instructions.
 
+DealerOn may link each human site to its matching stable Motor Inn handoff URL
+above, but must not interchange them. The link text should name the rooftop,
+for example `Schedule Chevrolet service` or `Schedule Toyota service`, rather
+than a generic `Click here`. The current branded appointment page remains the
+canonical fallback until the corresponding Xtime activation is approved.
+
 The group page must not silently select a rooftop. It should require the customer to choose Chevrolet or Toyota unless Cox provides a verified group tenant that preserves the selected location.
 
 ## Pre-activation checks
+
+First run the local/runtime-safe validator. It reports only booleans, fixed site
+keys, and Motor Inn-owned handoff URLs; it does not print Xtime tenant URLs,
+webkeys, or raw configuration errors:
+
+```bash
+.venv/bin/python tools/xtime_preflight.py --require configured
+.venv/bin/python tools/xtime_preflight.py --require verified
+.venv/bin/python tools/xtime_preflight.py --require active
+```
+
+Use `configured` after Cox values are staged, `verified` after an operator has
+matched each tenant to its rooftop, and `active` only during or after approved
+cutover. Exit code `0` means all three rooftops meet that requested stage; exit
+code `2` means at least one does not or an enabled configuration is invalid.
 
 With each URL configured but inactive:
 
@@ -95,6 +140,16 @@ Each response must report:
 - `providerTransition.rooftopBindingVerified` as `false` until the tenant check is recorded;
 - `providerTransition.active` as `false`;
 - the existing customer journey as the current `actionUrl`.
+- the Motor Inn-owned `/service-scheduler` address as `stableHandoffUrl`.
+
+Also request each stable handoff without following redirects and verify its
+rooftop-specific target:
+
+```bash
+curl -sSI https://ai.motorinnautogroup.com/service-scheduler
+curl -sSI https://ai.motorinnofcarroll.com/service-scheduler
+curl -sSI https://ai.motorinntoyotaofcarroll.com/service-scheduler
+```
 
 Then verify the three DealerOn pages independently. The dealership name, address, service department, OEM identity, timezone, and available services must match the selected rooftop.
 
@@ -102,7 +157,7 @@ Then verify the three DealerOn pages independently. The dealership name, address
 
 Activate one rooftop at a time in an owner-approved window:
 
-1. record the verified site key in `MOTORINN_XTIME_*_VERIFIED_ROOFTOP`, then enable the corresponding `MOTORINN_XTIME_*_ACTIVE=true` value;
+1. record the verified site key in `MOTORINN_XTIME_*_VERIFIED_ROOFTOP`, run `tools/xtime_preflight.py --require verified`, then enable the corresponding `MOTORINN_XTIME_*_ACTIVE=true` value;
 2. verify the HTTP and MCP service-information results are equivalent;
 3. follow the public action URL and complete a staff-supervised appointment;
 4. record the Xtime appointment identifier and source-system timestamp;

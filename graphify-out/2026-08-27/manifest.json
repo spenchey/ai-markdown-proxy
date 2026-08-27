@@ -1,7 +1,7 @@
 {
   "agent_access.py": {
-    "mtime": 1787838178.1634986,
-    "ast_hash": "ac33720e930a5999b60b3499c0b81be2",
+    "mtime": 1787838707.002423,
+    "ast_hash": "b890f7302ff22b5b9d342c190b627a5d",
     "semantic_hash": ""
   },
   "content/manifest.json": {
@@ -35,13 +35,13 @@
     "semantic_hash": ""
   },
   "server.py": {
-    "mtime": 1787838355.0954144,
-    "ast_hash": "348349e3339206e1422786e295428afc",
+    "mtime": 1787838649.8569834,
+    "ast_hash": "b77d11dee3115ea622c821d64bdc882c",
     "semantic_hash": ""
   },
   "tests/test_agent_access.py": {
-    "mtime": 1787838464.0593715,
-    "ast_hash": "5adff33248c0d8c1bd918a3c5a9e313b",
+    "mtime": 1787838707.0026853,
+    "ast_hash": "49d1ab9c5301d07f9a23de54805d2846",
     "semantic_hash": ""
   },
   "tests/test_dealeron_handoff.py": {
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "docs/agent-access-foundation-v1.md": {
-    "mtime": 1787838479.2388084,
-    "ast_hash": "efa406f3b54f7d25c4a3b31a742d7305",
+    "mtime": 1787838755.139563,
+    "ast_hash": "45545b1f62b674660aafae7f4089ebb3",
     "semantic_hash": ""
   },
   "docs/transaction-security-contract.md": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "openapi/agent-access-v1.yaml": {
-    "mtime": 1787838103.0285656,
-    "ast_hash": "971ec71f125aaa253332cfb3e75a1acf",
+    "mtime": 1787838747.3909397,
+    "ast_hash": "9ae835350147b25e27b271c0b0dcce04",
     "semantic_hash": ""
   },
   "requirements.txt": {
