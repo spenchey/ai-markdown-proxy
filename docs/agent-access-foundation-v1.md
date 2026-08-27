@@ -1,6 +1,6 @@
 # Agent Access Foundation v1
 
-Status: approved and implemented on the isolated branch; production deployment pending
+Status: deployed to all three production AI hosts on August 27, 2026
 Branch: `codex/ai-agent-access-foundation`
 Base: `origin/main` at `2031a87`
 
@@ -167,4 +167,6 @@ Proposed behavioral tests:
 - The transaction security contract is documented in `docs/transaction-security-contract.md`.
 - Runtime routes implement the public projection, typed errors, host isolation, staged Xtime handoff, and read-only MCP tools.
 - HTTP and MCP return equivalent service results and equivalent vehicle-search results for the same fixture.
-- The local suite passes 55 tests, including the single-Carroll service/location contracts, three brand-specific stable handoffs, DealerOn organization handoff package, and secret-safe one-location Xtime preflight. The branch has not been deployed and no Xtime tenant or appointment was exercised.
+- The local suite passes 55 tests, including the single-Carroll service/location contracts, three brand-specific stable handoffs, DealerOn organization handoff package, and secret-safe one-location Xtime preflight.
+- PR #1 merged as `da06bd9` and was deployed to the production EC2 service on August 27, 2026. Live checks passed for OpenAPI, all five MCP read tools, vehicle search, the shared Carroll location, service capability state, and inactive Xtime transition on all three hosts.
+- No Xtime tenant or appointment was exercised. Xtime remains inactive until Cox supplies and Motor Inn approves the official Carroll configuration.
