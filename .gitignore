@@ -8,3 +8,4 @@ __pycache__/
 # Keep the zip out of git
 *.zip
 .codebase-memory/
+runtime.env

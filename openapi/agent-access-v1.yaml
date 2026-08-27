@@ -1,0 +1,775 @@
+openapi: 3.1.2
+info:
+  title: Motor Inn Agent Access API
+  version: 1.0.0-draft.2
+  summary: Source-backed, read-only access to public Motor Inn dealership information.
+  description: |
+    This contract exposes only public, read-only capabilities backed by the
+    existing Motor Inn AI mirrors. Inventory is returned only after the
+    DealerVault/public-catalog match gate passes. Service and parts responses
+    describe the current customer journey; they do not create or confirm a
+    transaction.
+
+    A request, external handoff, provisional hold, and authoritative
+    confirmation are distinct states. This API currently implements no hold or
+    confirmation operation.
+  contact:
+    name: Motor Inn Auto Group
+    url: https://www.motorinnautogroup.com/
+  license:
+    name: Proprietary
+servers:
+  - url: https://ai.motorinnautogroup.com
+    description: Motor Inn Auto Group read-only mirror
+  - url: https://ai.motorinnofcarroll.com
+    description: Motor Inn of Carroll read-only mirror
+  - url: https://ai.motorinntoyotaofcarroll.com
+    description: Motor Inn Toyota Of Carroll read-only mirror
+tags:
+  - name: Discovery
+  - name: Vehicles
+  - name: Locations
+  - name: Service
+  - name: Parts
+x-motorinn-boundary:
+  access: public-read-only
+  sourceAuthority: DealerVault matched to the public DealerOn catalog
+  transactionsImplemented: false
+  authoritativeConfirmationImplemented: false
+paths:
+  /openapi.json:
+    get:
+      operationId: getOpenApiDocument
+      summary: Get the API contract for the resolved Motor Inn site
+      tags: [Discovery]
+      responses:
+        "200":
+          description: OpenAPI 3.1.2 document
+          headers:
+            ETag:
+              description: Deterministic representation identifier
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/vehicles:
+    get:
+      operationId: searchVehicles
+      summary: Search active public vehicles for the resolved Motor Inn site
+      description: |
+        Results are site-isolated and include only the public projection of
+        units that match the current DealerVault export and public DealerOn
+        catalog. Missing or stale controlling sources fail closed.
+      tags: [Vehicles]
+      parameters:
+        - $ref: "#/components/parameters/Query"
+        - $ref: "#/components/parameters/Condition"
+        - $ref: "#/components/parameters/Make"
+        - $ref: "#/components/parameters/Model"
+        - $ref: "#/components/parameters/MinPrice"
+        - $ref: "#/components/parameters/MaxPrice"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Active public vehicle results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehicleSearchResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/SourceUnavailable"
+  /api/v1/vehicles/{vin}:
+    get:
+      operationId: getVehicle
+      summary: Get one active public vehicle for the resolved Motor Inn site
+      tags: [Vehicles]
+      parameters:
+        - $ref: "#/components/parameters/Vin"
+      responses:
+        "200":
+          description: Active public vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehicleResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/SourceUnavailable"
+  /api/v1/locations:
+    get:
+      operationId: listLocations
+      summary: Get the Carroll physical location and brand-specific contact resource
+      tags: [Locations]
+      responses:
+        "200":
+          description: One Carroll location with contact routing for the selected brand site
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationResponse"
+        "503":
+          $ref: "#/components/responses/SourceUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /service-scheduler:
+    get:
+      operationId: followServiceSchedulerHandoff
+      summary: Follow the stable brand-specific Carroll service scheduling handoff
+      description: >-
+        Redirects to the current authoritative customer journey. Before Xtime
+        activation this remains the existing scheduler; after a valid URL,
+        exact Carroll location verification, and explicit activation it becomes the
+        approved Xtime journey. This operation does not create or confirm an
+        appointment.
+      tags: [Service]
+      responses:
+        "302":
+          description: Temporary redirect to the current service scheduling journey
+          headers:
+            Location:
+              description: Current validated scheduling journey
+              schema:
+                type: string
+                format: uri
+            Cache-Control:
+              description: Prevent caching across a provider cutover
+              schema:
+                type: string
+                const: no-store
+            Referrer-Policy:
+              description: Prevent the Motor Inn handoff URL from being sent downstream
+              schema:
+                type: string
+                const: no-referrer
+            X-Robots-Tag:
+              description: Keep the redirect out of search indexes
+              schema:
+                type: string
+                const: noindex, nofollow
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/SourceUnavailable"
+  /api/v1/service-information:
+    get:
+      operationId: getServiceInformation
+      summary: Get public service information and the current customer journey
+      tags: [Service]
+      responses:
+        "200":
+          description: Service information without transaction authority
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceInformationResponse"
+              examples:
+                chevroletExternalScheduler:
+                  value:
+                    schema: motorinn.capabilityInformation.v1
+                    site:
+                      key: motorinnchevy
+                      name: Motor Inn of Carroll
+                      host: ai.motorinnofcarroll.com
+                      canonicalUrl: https://www.motorinnofcarroll.com
+                    serviceLocation:
+                      key: carroll
+                      name: Carroll
+                      address:
+                        streetAddress: 1526 Le Clark Road
+                        addressLocality: Carroll
+                        addressRegion: IA
+                        postalCode: "51401"
+                        addressCountry: US
+                      timeZone: America/Chicago
+                    domain: service
+                    capabilityState: external_handoff
+                    actionUrl: https://www.motorinnofcarroll.com/serviceappmt.aspx
+                    stableHandoffUrl: https://ai.motorinnofcarroll.com/service-scheduler
+                    authoritativeSystem: GM Online Service Scheduling
+                    availableOperations:
+                      information: true
+                      request: false
+                      liveAvailability: false
+                      hold: false
+                      confirm: false
+                      reschedule: false
+                      cancel: false
+                    notice: Complete scheduling in the linked GM customer journey.
+                    providerTransition:
+                      targetProvider: Xtime Schedule by Cox Automotive
+                      locationKey: carroll
+                      status: planned
+                      configured: false
+                      locationBindingVerified: false
+                      active: false
+                toyotaRequestOnly:
+                  value:
+                    schema: motorinn.capabilityInformation.v1
+                    site:
+                      key: motorinntoyota
+                      name: Motor Inn Toyota Of Carroll
+                      host: ai.motorinntoyotaofcarroll.com
+                      canonicalUrl: https://www.motorinntoyotaofcarroll.com
+                    serviceLocation:
+                      key: carroll
+                      name: Carroll
+                      address:
+                        streetAddress: 1526 Le Clark Road
+                        addressLocality: Carroll
+                        addressRegion: IA
+                        postalCode: "51401"
+                        addressCountry: US
+                      timeZone: America/Chicago
+                    domain: service
+                    capabilityState: requested_only
+                    actionUrl: https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx
+                    stableHandoffUrl: https://ai.motorinntoyotaofcarroll.com/service-scheduler
+                    authoritativeSystem: DealerOn appointment request form
+                    availableOperations:
+                      information: true
+                      request: false
+                      liveAvailability: false
+                      hold: false
+                      confirm: false
+                      reschedule: false
+                      cancel: false
+                    notice: The linked form requests staff follow-up and is not a confirmed appointment.
+                    providerTransition:
+                      targetProvider: Xtime Schedule by Cox Automotive
+                      locationKey: carroll
+                      status: planned
+                      configured: false
+                      locationBindingVerified: false
+                      active: false
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/SourceUnavailable"
+  /api/v1/parts-information:
+    get:
+      operationId: getPartsInformation
+      summary: Get public parts information and the current request journey
+      tags: [Parts]
+      responses:
+        "200":
+          description: Parts information without catalog or order authority
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapabilityInformationResponse"
+              example:
+                schema: motorinn.capabilityInformation.v1
+                site:
+                  key: motorinnchevy
+                  name: Motor Inn of Carroll
+                  host: ai.motorinnofcarroll.com
+                  canonicalUrl: https://www.motorinnofcarroll.com
+                domain: parts
+                capabilityState: requested_only
+                actionUrl: https://www.motorinnofcarroll.com/orderparts.aspx
+                authoritativeSystem: DealerOn parts request form
+                availableOperations:
+                  information: true
+                  request: false
+                  liveAvailability: false
+                  hold: false
+                  confirm: false
+                  reschedule: false
+                  cancel: false
+                notice: The linked form requests staff follow-up and is not a stock check, cart, or confirmed order.
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/SourceUnavailable"
+components:
+  parameters:
+    Query:
+      name: query
+      in: query
+      description: Lexical year, make, model, trim, stock-number, or VIN query
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+    Condition:
+      name: condition
+      in: query
+      schema:
+        type: string
+        enum: [new, used]
+    Make:
+      name: make
+      in: query
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 80
+    Model:
+      name: model
+      in: query
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 120
+    MinPrice:
+      name: minPrice
+      in: query
+      description: Minimum advertised price in USD, including the documentary fee
+      schema:
+        type: number
+        minimum: 0
+    MaxPrice:
+      name: maxPrice
+      in: query
+      description: Maximum advertised price in USD, including the documentary fee
+      schema:
+        type: number
+        minimum: 0
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 25
+        default: 10
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque stable pagination cursor returned by the preceding response
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+    Vin:
+      name: vin
+      in: path
+      required: true
+      description: Seventeen-character vehicle identification number
+      schema:
+        type: string
+        pattern: "^[A-HJ-NPR-Za-hj-npr-z0-9]{17}$"
+  responses:
+    InvalidRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            schema: motorinn.error.v1
+            error:
+              code: invalid_request
+              message: limit must be between 1 and 25
+              retryable: false
+    NotFound:
+      description: The requested resource is not active for the resolved site
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            schema: motorinn.error.v1
+            error:
+              code: not_found
+              message: Vehicle not found
+              retryable: false
+    RateLimited:
+      description: Request rate limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until a retry may be attempted
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            schema: motorinn.error.v1
+            error:
+              code: rate_limited
+              message: Request rate limit exceeded
+              retryable: true
+    SourceUnavailable:
+      description: A controlling public source is unavailable, stale, or inconsistent
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            schema: motorinn.error.v1
+            error:
+              code: source_unavailable
+              message: Public inventory sources are temporarily unavailable
+              retryable: true
+    InternalError:
+      description: An unexpected internal failure prevented the request from completing
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            schema: motorinn.error.v1
+            error:
+              code: internal_error
+              message: The request could not be completed
+              retryable: false
+  schemas:
+    SiteIdentity:
+      type: object
+      additionalProperties: false
+      required: [key, name, host, canonicalUrl]
+      properties:
+        key:
+          type: string
+          enum: [motorinnautogroup, motorinnchevy, motorinntoyota]
+        name:
+          type: string
+          minLength: 1
+        host:
+          type: string
+          enum:
+            - ai.motorinnautogroup.com
+            - ai.motorinnofcarroll.com
+            - ai.motorinntoyotaofcarroll.com
+        canonicalUrl:
+          type: string
+          format: uri
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amount, currency, includesDocumentaryFee, documentaryFeeAmount]
+      properties:
+        amount:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{2}$"
+        currency:
+          type: string
+          const: USD
+        includesDocumentaryFee:
+          type: boolean
+          const: true
+        documentaryFeeAmount:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{2}$"
+    SourceFreshness:
+      type: object
+      additionalProperties: false
+      required: [dealerVaultUpdatedAt, publicCatalogUpdatedAt]
+      properties:
+        dealerVaultUpdatedAt:
+          type: string
+          format: date-time
+        publicCatalogUpdatedAt:
+          type: string
+          format: date-time
+    Vehicle:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - vin
+        - stockNumber
+        - year
+        - make
+        - model
+        - condition
+        - advertisedPrice
+        - availability
+        - site
+        - canonicalUrl
+        - sourceFreshness
+      properties:
+        id:
+          type: string
+          minLength: 1
+        vin:
+          type: string
+          pattern: "^[A-HJ-NPR-Z0-9]{17}$"
+        stockNumber:
+          type: string
+          minLength: 1
+        year:
+          type: integer
+          minimum: 1886
+          maximum: 2200
+        make:
+          type: string
+          minLength: 1
+        model:
+          type: string
+          minLength: 1
+        trim:
+          type: [string, "null"]
+        condition:
+          type: string
+          enum: [new, used]
+        advertisedPrice:
+          oneOf:
+            - $ref: "#/components/schemas/Money"
+            - type: "null"
+        availability:
+          type: string
+          minLength: 1
+        site:
+          $ref: "#/components/schemas/SiteIdentity"
+        canonicalUrl:
+          type: string
+          format: uri
+        imageUrl:
+          type: [string, "null"]
+          format: uri
+        sourceFreshness:
+          $ref: "#/components/schemas/SourceFreshness"
+    VehicleSearchResponse:
+      type: object
+      additionalProperties: false
+      required: [schema, site, resultCount, nextCursor, sourceFreshness, vehicles]
+      properties:
+        schema:
+          type: string
+          const: motorinn.vehicleSearch.v1
+        site:
+          $ref: "#/components/schemas/SiteIdentity"
+        resultCount:
+          type: integer
+          minimum: 0
+        nextCursor:
+          type: [string, "null"]
+        sourceFreshness:
+          $ref: "#/components/schemas/SourceFreshness"
+        vehicles:
+          type: array
+          maxItems: 25
+          items:
+            $ref: "#/components/schemas/Vehicle"
+    VehicleResponse:
+      type: object
+      additionalProperties: false
+      required: [schema, site, vehicle]
+      properties:
+        schema:
+          type: string
+          const: motorinn.vehicle.v1
+        site:
+          $ref: "#/components/schemas/SiteIdentity"
+        vehicle:
+          $ref: "#/components/schemas/Vehicle"
+    PublicContact:
+      type: object
+      additionalProperties: false
+      required: [department, number, status, sourceUrl]
+      properties:
+        department:
+          type: string
+          enum: [sales, service, parts, general]
+        number:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [canonical, unresolved]
+        sourceUrl:
+          type: string
+          format: uri
+    Location:
+      type: object
+      additionalProperties: false
+      required: [location, brandContext, contactResourceUrl, contacts]
+      properties:
+        location:
+          $ref: "#/components/schemas/ServiceLocation"
+        brandContext:
+          $ref: "#/components/schemas/SiteIdentity"
+        contactResourceUrl:
+          type: string
+          format: uri
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicContact"
+    LocationResponse:
+      type: object
+      additionalProperties: false
+      required: [schema, site, locations]
+      properties:
+        schema:
+          type: string
+          const: motorinn.locations.v1
+        site:
+          $ref: "#/components/schemas/SiteIdentity"
+        locations:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Location"
+    AvailableOperations:
+      type: object
+      additionalProperties: false
+      required: [information, request, liveAvailability, hold, confirm, reschedule, cancel]
+      properties:
+        information:
+          type: boolean
+        request:
+          type: boolean
+        liveAvailability:
+          type: boolean
+        hold:
+          type: boolean
+        confirm:
+          type: boolean
+        reschedule:
+          type: boolean
+        cancel:
+          type: boolean
+    CapabilityInformationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - schema
+        - site
+        - domain
+        - capabilityState
+        - actionUrl
+        - authoritativeSystem
+        - availableOperations
+        - notice
+      properties:
+        schema:
+          type: string
+          const: motorinn.capabilityInformation.v1
+        site:
+          $ref: "#/components/schemas/SiteIdentity"
+        serviceLocation:
+          $ref: "#/components/schemas/ServiceLocation"
+        domain:
+          type: string
+          enum: [service, parts]
+        capabilityState:
+          type: string
+          enum: [information_only, external_handoff, requested_only]
+        actionUrl:
+          type: string
+          format: uri
+        stableHandoffUrl:
+          type: string
+          format: uri
+        authoritativeSystem:
+          type: string
+          minLength: 1
+        availableOperations:
+          $ref: "#/components/schemas/AvailableOperations"
+        notice:
+          type: string
+          minLength: 1
+        providerTransition:
+          $ref: "#/components/schemas/ProviderTransition"
+    ServiceInformationResponse:
+      allOf:
+        - $ref: "#/components/schemas/CapabilityInformationResponse"
+        - type: object
+          required: [serviceLocation, stableHandoffUrl, providerTransition]
+          properties:
+            serviceLocation:
+              $ref: "#/components/schemas/ServiceLocation"
+    ServiceLocation:
+      type: object
+      additionalProperties: false
+      required: [key, name, address, timeZone]
+      properties:
+        key:
+          type: string
+          const: carroll
+        name:
+          type: string
+          const: Carroll
+        address:
+          type: object
+          additionalProperties: false
+          required: [streetAddress, addressLocality, addressRegion, postalCode, addressCountry]
+          properties:
+            streetAddress:
+              type: string
+              const: 1526 Le Clark Road
+            addressLocality:
+              type: string
+              const: Carroll
+            addressRegion:
+              type: string
+              const: IA
+            postalCode:
+              type: string
+              const: "51401"
+            addressCountry:
+              type: string
+              const: US
+        timeZone:
+          type: string
+          const: America/Chicago
+    ProviderTransition:
+      type: object
+      additionalProperties: false
+      required: [targetProvider, locationKey, status, configured, locationBindingVerified, active]
+      properties:
+        targetProvider:
+          type: string
+          const: Xtime Schedule by Cox Automotive
+        locationKey:
+          type: string
+          const: carroll
+        status:
+          type: string
+          enum: [planned, active]
+        configured:
+          type: boolean
+        locationBindingVerified:
+          type: boolean
+        active:
+          type: boolean
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [schema, error]
+      properties:
+        schema:
+          type: string
+          const: motorinn.error.v1
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, retryable]
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_request
+                - not_found
+                - rate_limited
+                - source_unavailable
+                - internal_error
+            message:
+              type: string
+              minLength: 1
+            retryable:
+              type: boolean

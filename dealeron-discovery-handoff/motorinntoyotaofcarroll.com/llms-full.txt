@@ -11,5 +11,12 @@ AI-readable discovery host: https://ai.motorinntoyotaofcarroll.com
 - [Current new Toyota inventory](https://ai.motorinntoyotaofcarroll.com/new-inventory.md)
 - [Current pre-owned inventory](https://ai.motorinntoyotaofcarroll.com/used-inventory.md)
 - [Current offers](https://ai.motorinntoyotaofcarroll.com/offers.md)
+- [OpenAPI agent contract](https://ai.motorinntoyotaofcarroll.com/openapi.json)
+- [MCP endpoint](https://ai.motorinntoyotaofcarroll.com/mcp)
+- [Search vehicles](https://ai.motorinntoyotaofcarroll.com/api/v1/vehicles)
+- [Carroll service information](https://ai.motorinntoyotaofcarroll.com/api/v1/service-information)
+- [Service scheduler handoff](https://ai.motorinntoyotaofcarroll.com/service-scheduler)
+- [Parts information](https://ai.motorinntoyotaofcarroll.com/api/v1/parts-information)
 
 The canonical DealerOn HTML controls customer-facing facts. Inventory is published only after matching DealerVault/Athena data to a current public DealerOn vehicle page.
+Following the service link is not a confirmed appointment. A parts request is not a confirmed parts order. Only the authoritative provider may return those confirmed states.

@@ -44,12 +44,26 @@ class HealthMonitorTests(unittest.TestCase):
                         "dealerVaultUpdatedAt": fresh_timestamp,
                         "catalogUpdatedAt": fresh_timestamp,
                         "agentQuery": {"status": "ok"},
+                        "agentAccess": {"status": "ok"},
                     }
                 ).encode(),
             },
         )
         self.assertTrue(ok, error)
         self.assertIsNotNone(freshness)
+
+    def test_agent_access_checks_validate_openapi_service_and_mcp(self) -> None:
+        cases = [
+            ("/openapi.json", {"openapi": "3.1.2", "paths": {"/api/v1/vehicles": {}}}),
+            ("/api/v1/vehicles?limit=1", {"schema": "motorinn.vehicleSearch.v1", "site": {"key": "motorinnchevy"}, "resultCount": 0, "vehicles": []}),
+            ("/api/v1/service-information", {"schema": "motorinn.capabilityInformation.v1", "capabilityState": "external_handoff"}),
+            ("/mcp#initialize", {"result": {"protocolVersion": "2025-11-25"}}),
+            ("/mcp#tools-list", {"result": {"tools": [{"name": "search_vehicles"}, {"name": "get_service_information"}]}}),
+        ]
+        for path, payload in cases:
+            with self.subTest(path=path):
+                ok, error, _ = health_monitor.evaluate_result(path, {"status": 200, "content_type": "application/json", "body": json.dumps(payload).encode()})
+                self.assertTrue(ok, error)
 
     def test_agent_query_checks_require_markdown_and_valid_json_results(self) -> None:
         ok, error, _ = health_monitor.evaluate_result(

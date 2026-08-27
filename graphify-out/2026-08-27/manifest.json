@@ -1,0 +1,282 @@
+{
+  "agent_access.py": {
+    "mtime": 1787847261.5820596,
+    "ast_hash": "25c81cfc58db2feb666906f0200fea1c",
+    "semantic_hash": ""
+  },
+  "content/manifest.json": {
+    "mtime": 1787828201.2845428,
+    "ast_hash": "b8f3b357ed68893dbf9b6c22f9250345",
+    "semantic_hash": ""
+  },
+  "deploy-monitoring.sh": {
+    "mtime": 1787828201.3015246,
+    "ast_hash": "099ecec4fd57c7f7268c7c3495397474",
+    "semantic_hash": ""
+  },
+  "deploy.sh": {
+    "mtime": 1787838444.9985657,
+    "ast_hash": "6770f7603ae033a0fbff6a7532bff83b",
+    "semantic_hash": ""
+  },
+  "infra/__init__.py": {
+    "mtime": 1787828201.302219,
+    "ast_hash": "a45caee21e9e26595e25a95a4719af51",
+    "semantic_hash": ""
+  },
+  "infra/health_monitor.py": {
+    "mtime": 1787838444.9979663,
+    "ast_hash": "042d43412580ecc18b03db74523ba6da",
+    "semantic_hash": ""
+  },
+  "scripts/sync_validated_content.py": {
+    "mtime": 1787828201.3039477,
+    "ast_hash": "173e70dbc203779ecd9bea34b637d5b8",
+    "semantic_hash": ""
+  },
+  "server.py": {
+    "mtime": 1787844405.254184,
+    "ast_hash": "6434111c144e0473fd47c4e406d5399e",
+    "semantic_hash": ""
+  },
+  "tests/test_agent_access.py": {
+    "mtime": 1787847589.6240375,
+    "ast_hash": "13ab9914965fedc7c87424464e34f350",
+    "semantic_hash": ""
+  },
+  "tests/test_dealeron_handoff.py": {
+    "mtime": 1787847403.959455,
+    "ast_hash": "d5f74c956341bc6356c3b00141f86992",
+    "semantic_hash": ""
+  },
+  "tests/test_health_monitor.py": {
+    "mtime": 1787838444.9982603,
+    "ast_hash": "ea62dc8046579f6c05c7549c27a40dae",
+    "semantic_hash": ""
+  },
+  "tests/test_query_layer.py": {
+    "mtime": 1787828201.3070312,
+    "ast_hash": "2db62bef9c6db21d8cdd2ee23c18fc18",
+    "semantic_hash": ""
+  },
+  "tests/test_server.py": {
+    "mtime": 1787828201.3074045,
+    "ast_hash": "24840e723764d5145e6b04412ddc6a7b",
+    "semantic_hash": ""
+  },
+  "user-data.sh": {
+    "mtime": 1787828201.3076916,
+    "ast_hash": "3cc3634f793c56ee2f53a5d57d92b505",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1787847344.7856739,
+    "ast_hash": "35d1dfcd4390aae381e3ba4af2a34fea",
+    "semantic_hash": ""
+  },
+  "content/motorinnautogroup/contact-hours.md": {
+    "mtime": 1787828201.2852683,
+    "ast_hash": "95fcfa6ae27ce190a6f4d5aad016fba4",
+    "semantic_hash": ""
+  },
+  "content/motorinnautogroup/dealership.md": {
+    "mtime": 1787828201.2856972,
+    "ast_hash": "b4ec473ef0f536987257467da07ce1b2",
+    "semantic_hash": ""
+  },
+  "content/motorinnautogroup/finance-trade.md": {
+    "mtime": 1787828201.2861705,
+    "ast_hash": "1fc1eb2d035e898f4fea38d732a72b39",
+    "semantic_hash": ""
+  },
+  "content/motorinnautogroup/llms-full.txt": {
+    "mtime": 1787828201.2865796,
+    "ast_hash": "20a336d3d7e1ddbf02c6eaf6a383e607",
+    "semantic_hash": ""
+  },
+  "content/motorinnautogroup/llms.txt": {
+    "mtime": 1787828201.2868748,
+    "ast_hash": "69543a5bee86eaff7394ef1b5e4f6103",
+    "semantic_hash": ""
+  },
+  "content/motorinnautogroup/policies.md": {
+    "mtime": 1787828201.2874656,
+    "ast_hash": "e5e430292e1181e1786322813b456acf",
+    "semantic_hash": ""
+  },
+  "content/motorinnautogroup/service.md": {
+    "mtime": 1787828201.288032,
+    "ast_hash": "e336926c227e229253cb38faaa538798",
+    "semantic_hash": ""
+  },
+  "content/motorinnofcarroll/contact-hours.md": {
+    "mtime": 1787828201.2889316,
+    "ast_hash": "911dc64b022b218f897dae2973388258",
+    "semantic_hash": ""
+  },
+  "content/motorinnofcarroll/dealership.md": {
+    "mtime": 1787828201.2896729,
+    "ast_hash": "67c55fc94f85e685052a796902b9e378",
+    "semantic_hash": ""
+  },
+  "content/motorinnofcarroll/finance-trade.md": {
+    "mtime": 1787828201.2899938,
+    "ast_hash": "548746f8f87abdec5e4187448bfbc727",
+    "semantic_hash": ""
+  },
+  "content/motorinnofcarroll/llms-full.txt": {
+    "mtime": 1787828201.290284,
+    "ast_hash": "54394173828b67b02d9cf469f0902ffa",
+    "semantic_hash": ""
+  },
+  "content/motorinnofcarroll/llms.txt": {
+    "mtime": 1787828201.2916873,
+    "ast_hash": "6154fa216315090efcaa5c932195180d",
+    "semantic_hash": ""
+  },
+  "content/motorinnofcarroll/policies.md": {
+    "mtime": 1787828201.2920353,
+    "ast_hash": "ec06b2a107e08219b25960c57ce2839c",
+    "semantic_hash": ""
+  },
+  "content/motorinnofcarroll/service.md": {
+    "mtime": 1787828201.2924469,
+    "ast_hash": "f73dde73ef631d9e8a38e97397ea852a",
+    "semantic_hash": ""
+  },
+  "content/motorinntoyotaofcarroll/contact-hours.md": {
+    "mtime": 1787828201.292866,
+    "ast_hash": "e6a6a001b0f97b9c01507d8c7979e602",
+    "semantic_hash": ""
+  },
+  "content/motorinntoyotaofcarroll/dealership.md": {
+    "mtime": 1787828201.293385,
+    "ast_hash": "822b1d5e5b73f46b3af5158ad889549d",
+    "semantic_hash": ""
+  },
+  "content/motorinntoyotaofcarroll/finance-trade.md": {
+    "mtime": 1787828201.293726,
+    "ast_hash": "c46f619473ef5a76e543991b1493dbfd",
+    "semantic_hash": ""
+  },
+  "content/motorinntoyotaofcarroll/llms-full.txt": {
+    "mtime": 1787828201.2940645,
+    "ast_hash": "71751dbce7e3a8f7c4b83a8b3b496f28",
+    "semantic_hash": ""
+  },
+  "content/motorinntoyotaofcarroll/llms.txt": {
+    "mtime": 1787828201.2943854,
+    "ast_hash": "70480e5db2f9992141e787275177c299",
+    "semantic_hash": ""
+  },
+  "content/motorinntoyotaofcarroll/policies.md": {
+    "mtime": 1787828201.2947433,
+    "ast_hash": "37c5a4cd1a55f8a78b6c9e6f09c272cd",
+    "semantic_hash": ""
+  },
+  "content/motorinntoyotaofcarroll/service.md": {
+    "mtime": 1787828201.2953126,
+    "ast_hash": "18e8120208adb7b3cf738de535ede46d",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/DEALERON_REQUEST.md": {
+    "mtime": 1787847450.497923,
+    "ast_hash": "565696897ed4cbd80ffd865669cf4ab8",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/README.md": {
+    "mtime": 1787828201.2967362,
+    "ast_hash": "616d2ec2eb3024dcbdf25e87e218e1a4",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinnautogroup.com/llms-full.txt": {
+    "mtime": 1787828201.2971194,
+    "ast_hash": "7f95c5fcd4c558a0f2bbe4de95912e7b",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinnautogroup.com/llms.txt": {
+    "mtime": 1787847450.4985669,
+    "ast_hash": "0856921a8da64f79c54d2d947699664f",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinnautogroup.com/robots-additions.txt": {
+    "mtime": 1787828201.2976892,
+    "ast_hash": "c3e95569b0c2aaaae00502f10e1c26cb",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinnofcarroll.com/llms-full.txt": {
+    "mtime": 1787828201.2990174,
+    "ast_hash": "f5930e0b8b780635243cda59fb73de52",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinnofcarroll.com/llms.txt": {
+    "mtime": 1787847450.4987931,
+    "ast_hash": "fdec0711a2f5f1122c8072b7422deed1",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinnofcarroll.com/robots-additions.txt": {
+    "mtime": 1787828201.2999892,
+    "ast_hash": "c3e95569b0c2aaaae00502f10e1c26cb",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinntoyotaofcarroll.com/llms-full.txt": {
+    "mtime": 1787828201.300337,
+    "ast_hash": "ff98e33a0e3cb1b65f82decf6b86d1e8",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinntoyotaofcarroll.com/llms.txt": {
+    "mtime": 1787847450.499012,
+    "ast_hash": "67c1f63861a339efe281fa099c10ab82",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/motorinntoyotaofcarroll.com/robots-additions.txt": {
+    "mtime": 1787828201.3010921,
+    "ast_hash": "c3e95569b0c2aaaae00502f10e1c26cb",
+    "semantic_hash": ""
+  },
+  "docs/agent-access-foundation-v1.md": {
+    "mtime": 1787847528.50459,
+    "ast_hash": "3cad1aa110ab9d398b822104a745e38f",
+    "semantic_hash": ""
+  },
+  "docs/transaction-security-contract.md": {
+    "mtime": 1787838972.1873791,
+    "ast_hash": "5ae7289fe2511c5e54bfa4f1a158e8d2",
+    "semantic_hash": ""
+  },
+  "docs/xtime-dealeron-integration.md": {
+    "mtime": 1787847380.0690186,
+    "ast_hash": "ee1f275bf90462c61528b7f7a87f02dd",
+    "semantic_hash": ""
+  },
+  "openapi/agent-access-v1.yaml": {
+    "mtime": 1787847602.0690625,
+    "ast_hash": "039a08fad69cea3276941979486cbf66",
+    "semantic_hash": ""
+  },
+  "requirements.txt": {
+    "mtime": 1787838150.7542784,
+    "ast_hash": "7132049d915b58105d9323af78789601",
+    "semantic_hash": ""
+  },
+  "tests/test_xtime_preflight.py": {
+    "mtime": 1787847182.0815098,
+    "ast_hash": "1e663a42451f302f03bd831917610e86",
+    "semantic_hash": ""
+  },
+  "tools/xtime_preflight.py": {
+    "mtime": 1787847261.5829606,
+    "ast_hash": "80ecffe0883a88124dcc51822ed4959e",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/ACCEPTANCE_CHECKLIST.md": {
+    "mtime": 1787847450.4983373,
+    "ast_hash": "24bf22abed3ef53972120f33e959c4a5",
+    "semantic_hash": ""
+  },
+  "dealeron-discovery-handoff/SITE_PAGE_REQUIREMENTS.md": {
+    "mtime": 1787847450.4981663,
+    "ast_hash": "5a54b1a1673108d5cff75471e0bbd5e1",
+    "semantic_hash": ""
+  }
+}
