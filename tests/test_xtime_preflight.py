@@ -87,9 +87,43 @@ class XtimePreflightTests(unittest.TestCase):
         self.assertFalse(payload["requirementSatisfied"])
         toyota = next(site for site in payload["sites"] if site["site"] == "motorinntoyota")
         self.assertEqual(toyota["status"], "invalid")
+        self.assertTrue(toyota["configured"])
+        self.assertFalse(toyota["rooftopBindingVerified"])
         self.assertEqual(toyota["error"], "invalid_active_configuration")
         self.assertNotIn("wrong-rooftop", result.stdout.casefold())
         self.assertNotIn("secret-", result.stdout.casefold())
+
+    def test_malformed_inactive_staging_and_activation_flags_are_invalid(self):
+        staged = self.configured_environment()
+        staged["MOTORINN_XTIME_TOYOTA_URL"] = (
+            "https://evil.example/scheduling?webkey=do-not-print"
+        )
+        invalid_url = self.run_preflight(staged)
+
+        self.assertEqual(invalid_url.returncode, 2, invalid_url.stderr)
+        invalid_url_payload = json.loads(invalid_url.stdout)
+        self.assertFalse(invalid_url_payload["configurationValid"])
+        toyota = next(
+            site for site in invalid_url_payload["sites"]
+            if site["site"] == "motorinntoyota"
+        )
+        self.assertEqual(toyota["error"], "invalid_staged_url")
+        self.assertNotIn("evil.example", invalid_url.stdout)
+        self.assertNotIn("do-not-print", invalid_url.stdout)
+
+        malformed_flag = self.configured_environment()
+        malformed_flag["MOTORINN_XTIME_TOYOTA_ACTIVE"] = "tru"
+        invalid_flag = self.run_preflight(malformed_flag)
+
+        self.assertEqual(invalid_flag.returncode, 2, invalid_flag.stderr)
+        invalid_flag_payload = json.loads(invalid_flag.stdout)
+        self.assertFalse(invalid_flag_payload["configurationValid"])
+        toyota = next(
+            site for site in invalid_flag_payload["sites"]
+            if site["site"] == "motorinntoyota"
+        )
+        self.assertEqual(toyota["error"], "invalid_activation_flag")
+        self.assertFalse(toyota["active"])
 
     def test_active_requirement_succeeds_only_after_exact_rooftop_verification(self):
         result = self.run_preflight(

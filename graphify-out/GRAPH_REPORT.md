@@ -1,16 +1,16 @@
 # Graph Report - ai-markdown-proxy  (2026-08-27)
 
 ## Corpus Check
-- 37 files · ~23,324 words
+- 37 files · ~23,740 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 380 nodes · 729 edges · 38 communities (28 shown, 10 thin omitted)
+- 383 nodes · 736 edges · 38 communities (28 shown, 10 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `72021725`
+- Built from commit: `2505439c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -81,11 +81,11 @@
 
 ### Community 0 - "server.py"
 Cohesion: 0.09
-Nodes (64): agent_query_health(), api_inventory_detail(), api_inventory_search(), build_query_documents(), build_static_query_documents(), cache_get(), cache_set(), canonical_catalog_link() (+56 more)
+Nodes (65): agent_query_health(), api_inventory_detail(), api_inventory_search(), build_query_documents(), build_static_query_documents(), cache_get(), cache_set(), canonical_catalog_link() (+57 more)
 
 ### Community 1 - "agent_access.py"
-Cohesion: 0.17
-Nodes (37): _available_read_operations(), _base_price(), _bounded_text(), _canonical_catalog_url(), _condition(), ConfigurationUnavailable, _cursor_fingerprint(), _decimal() (+29 more)
+Cohesion: 0.16
+Nodes (39): _available_read_operations(), _base_price(), _bounded_text(), _canonical_catalog_url(), _condition(), ConfigurationUnavailable, _cursor_fingerprint(), _decimal() (+31 more)
 
 ### Community 2 - "health_monitor.py"
 Cohesion: 0.19
@@ -101,7 +101,7 @@ Nodes (15): Agent Access Foundation v1, Confirmed test seams, Current progress, 
 
 ### Community 7 - "build_static_query_documents"
 Cohesion: 0.14
-Nodes (35): Exception, Response, agent_query_error(), api_error(), api_response(), cache_stats(), gbp_review_operations(), gbp_review_operations_html() (+27 more)
+Nodes (34): Exception, Response, agent_query_error(), api_error(), api_response(), cache_stats(), gbp_review_operations(), gbp_review_operations_html() (+26 more)
 
 ### Community 9 - "Transaction security contract"
 Cohesion: 0.20
@@ -202,7 +202,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `files`, `generatedAt`, `schema` to the rest of the system?**
   _99 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `server.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.09362279511533243 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09174714661984197 - nodes in this community are weakly interconnected._
 - **Should `What It Serves` be split into smaller, more focused modules?**
   _Cohesion score 0.1111111111111111 - nodes in this community are weakly interconnected._
 - **Should `Agent Access Foundation v1` be split into smaller, more focused modules?**
@@ -210,4 +210,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `AgentAccessTests` be split into smaller, more focused modules?**
   _Cohesion score 0.1067193675889328 - nodes in this community are weakly interconnected._
 - **Should `build_static_query_documents` be split into smaller, more focused modules?**
-  _Cohesion score 0.13781512605042018 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1408199643493761 - nodes in this community are weakly interconnected._

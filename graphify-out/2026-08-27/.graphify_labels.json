@@ -34,5 +34,7 @@
   "32": "deploy.sh",
   "33": "deploy-monitoring.sh",
   "34": "__init__.py",
-  "35": "user-data.sh"
+  "35": "user-data.sh",
+  "36": "xtime_preflight.py",
+  "37": "parse_agent_query"
 }

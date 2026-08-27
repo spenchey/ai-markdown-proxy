@@ -1,7 +1,7 @@
 {
   "agent_access.py": {
-    "mtime": 1787838707.002423,
-    "ast_hash": "b890f7302ff22b5b9d342c190b627a5d",
+    "mtime": 1787841341.5317655,
+    "ast_hash": "29578c228a3c03a3039d2f6c783983fd",
     "semantic_hash": ""
   },
   "content/manifest.json": {
@@ -35,13 +35,13 @@
     "semantic_hash": ""
   },
   "server.py": {
-    "mtime": 1787838649.8569834,
-    "ast_hash": "b77d11dee3115ea622c821d64bdc882c",
+    "mtime": 1787841341.5327754,
+    "ast_hash": "d86aa478a705d8987d1316f79ae40590",
     "semantic_hash": ""
   },
   "tests/test_agent_access.py": {
-    "mtime": 1787838707.0026853,
-    "ast_hash": "49d1ab9c5301d07f9a23de54805d2846",
+    "mtime": 1787841539.9953928,
+    "ast_hash": "633224789f01ccef2a32a8f06adc6595",
     "semantic_hash": ""
   },
   "tests/test_dealeron_handoff.py": {
@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787838268.602733,
-    "ast_hash": "7dcc346074ba065fc73629639c9f2a4e",
+    "mtime": 1787841579.7556124,
+    "ast_hash": "976b6d319624c31d650c5b06e62ed2b3",
     "semantic_hash": ""
   },
   "content/motorinnautogroup/contact-hours.md": {
@@ -235,28 +235,38 @@
     "semantic_hash": ""
   },
   "docs/agent-access-foundation-v1.md": {
-    "mtime": 1787838755.139563,
-    "ast_hash": "45545b1f62b674660aafae7f4089ebb3",
+    "mtime": 1787838972.1866553,
+    "ast_hash": "f9b06162c9f164088cd03e643c319d87",
     "semantic_hash": ""
   },
   "docs/transaction-security-contract.md": {
-    "mtime": 1787828459.022402,
-    "ast_hash": "c55b734eb343d911365ccf0e784954c6",
+    "mtime": 1787838972.1873791,
+    "ast_hash": "5ae7289fe2511c5e54bfa4f1a158e8d2",
     "semantic_hash": ""
   },
   "docs/xtime-dealeron-integration.md": {
-    "mtime": 1787838400.8854358,
-    "ast_hash": "0e153378029ae2ddcd7d8b3a2064fef3",
+    "mtime": 1787841579.7561247,
+    "ast_hash": "59a55636b3a18966768c045bcc0ce191",
     "semantic_hash": ""
   },
   "openapi/agent-access-v1.yaml": {
-    "mtime": 1787838747.3909397,
-    "ast_hash": "9ae835350147b25e27b271c0b0dcce04",
+    "mtime": 1787841341.5333767,
+    "ast_hash": "891b45abc8c2e1aefbb960e0655d0f34",
     "semantic_hash": ""
   },
   "requirements.txt": {
     "mtime": 1787838150.7542784,
     "ast_hash": "7132049d915b58105d9323af78789601",
+    "semantic_hash": ""
+  },
+  "tests/test_xtime_preflight.py": {
+    "mtime": 1787841512.2151327,
+    "ast_hash": "d4556f063ce8e4677d532a1464554bea",
+    "semantic_hash": ""
+  },
+  "tools/xtime_preflight.py": {
+    "mtime": 1787841484.393434,
+    "ast_hash": "50b73daa0f725d542ad573ad2ff1127f",
     "semantic_hash": ""
   }
 }

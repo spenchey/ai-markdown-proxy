@@ -167,4 +167,4 @@ Proposed behavioral tests:
 - The transaction security contract is documented in `docs/transaction-security-contract.md`.
 - Runtime routes implement the public projection, typed errors, host isolation, staged Xtime handoff, and read-only MCP tools.
 - HTTP and MCP return equivalent service results and equivalent vehicle-search results for the same fixture.
-- The local suite passes 48 tests, including the stable service handoff and secret-safe Xtime configuration preflight. The branch has not been deployed and no Xtime tenant or appointment was exercised.
+- The local suite passes 49 tests, including the stable service handoff and secret-safe Xtime configuration preflight. The branch has not been deployed and no Xtime tenant or appointment was exercised.

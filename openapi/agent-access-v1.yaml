@@ -130,6 +130,45 @@ paths:
           $ref: "#/components/responses/SourceUnavailable"
         "500":
           $ref: "#/components/responses/InternalError"
+  /service-scheduler:
+    get:
+      operationId: followServiceSchedulerHandoff
+      summary: Follow the stable rooftop-specific service scheduling handoff
+      description: >-
+        Redirects to the current authoritative customer journey. Before Xtime
+        activation this remains the existing scheduler; after a valid URL,
+        exact rooftop verification, and explicit activation it becomes the
+        approved Xtime journey. This operation does not create or confirm an
+        appointment.
+      tags: [Service]
+      responses:
+        "302":
+          description: Temporary redirect to the current service scheduling journey
+          headers:
+            Location:
+              description: Current validated scheduling journey
+              schema:
+                type: string
+                format: uri
+            Cache-Control:
+              description: Prevent caching across a provider cutover
+              schema:
+                type: string
+                const: no-store
+            Referrer-Policy:
+              description: Prevent the Motor Inn handoff URL from being sent downstream
+              schema:
+                type: string
+                const: no-referrer
+            X-Robots-Tag:
+              description: Keep the redirect out of search indexes
+              schema:
+                type: string
+                const: noindex, nofollow
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/SourceUnavailable"
   /api/v1/service-information:
     get:
       operationId: getServiceInformation
@@ -141,7 +180,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CapabilityInformationResponse"
+                $ref: "#/components/schemas/ServiceInformationResponse"
               examples:
                 chevroletExternalScheduler:
                   value:
@@ -154,6 +193,7 @@ paths:
                     domain: service
                     capabilityState: external_handoff
                     actionUrl: https://www.motorinnofcarroll.com/serviceappmt.aspx
+                    stableHandoffUrl: https://ai.motorinnofcarroll.com/service-scheduler
                     authoritativeSystem: GM Online Service Scheduling
                     availableOperations:
                       information: true
@@ -164,6 +204,12 @@ paths:
                       reschedule: false
                       cancel: false
                     notice: Complete scheduling in the linked GM customer journey.
+                    providerTransition:
+                      targetProvider: Xtime Schedule by Cox Automotive
+                      status: planned
+                      configured: false
+                      rooftopBindingVerified: false
+                      active: false
                 toyotaRequestOnly:
                   value:
                     schema: motorinn.capabilityInformation.v1
@@ -175,6 +221,7 @@ paths:
                     domain: service
                     capabilityState: requested_only
                     actionUrl: https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx
+                    stableHandoffUrl: https://ai.motorinntoyotaofcarroll.com/service-scheduler
                     authoritativeSystem: DealerOn appointment request form
                     availableOperations:
                       information: true
@@ -185,6 +232,12 @@ paths:
                       reschedule: false
                       cancel: false
                     notice: The linked form requests staff follow-up and is not a confirmed appointment.
+                    providerTransition:
+                      targetProvider: Xtime Schedule by Cox Automotive
+                      status: planned
+                      configured: false
+                      rooftopBindingVerified: false
+                      active: false
         "500":
           $ref: "#/components/responses/InternalError"
         "503":
@@ -606,6 +659,11 @@ components:
           minLength: 1
         providerTransition:
           $ref: "#/components/schemas/ProviderTransition"
+    ServiceInformationResponse:
+      allOf:
+        - $ref: "#/components/schemas/CapabilityInformationResponse"
+        - type: object
+          required: [stableHandoffUrl, providerTransition]
     ProviderTransition:
       type: object
       additionalProperties: false

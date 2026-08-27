@@ -100,6 +100,14 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(document["openapi"], "3.1.2")
         self.assertEqual(document["servers"], [{"url": "https://ai.motorinnofcarroll.com", "description": "Motor Inn of Carroll read-only mirror"}])
         self.assertIn("/api/v1/vehicles", document["paths"])
+        self.assertIn("/service-scheduler", document["paths"])
+        handoff_responses = document["paths"]["/service-scheduler"]["get"]["responses"]
+        self.assertIn("302", handoff_responses)
+        self.assertIn("503", handoff_responses)
+        service_schema = document["components"]["schemas"]["ServiceInformationResponse"]
+        service_required = service_schema["allOf"][1]["required"]
+        self.assertIn("stableHandoffUrl", service_required)
+        self.assertIn("providerTransition", service_required)
         self.assertTrue(all(set(path_item) <= {"get"} for path_item in document["paths"].values()))
         self.assertIn("ETag", response.headers)
         self.assertIn("/openapi.json", self.client.get("/llms.txt", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True))
@@ -378,7 +386,13 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(invalid.status_code, 503)
         self.assertEqual(invalid.get_json()["error"]["code"], "source_unavailable")
 
-        for malformed_url in ("https://[", "https://user:secret@consumer.xtime.com:444/scheduling/?webkey=k"):
+        for malformed_url in (
+            "https://[",
+            "https://user:secret@consumer.xtime.com:444/scheduling/?webkey=k",
+            "https://consumer.xtime.com/scheduling/?webkey=k\r\nX-Evil: yes",
+            " https://consumer.xtime.com/scheduling/?webkey=k",
+            "https://consumer.xtime.com/scheduling/?webkey=k&variant=a&variant=b",
+        ):
             with self.subTest(malformed_url=malformed_url), patch.dict("server.os.environ", {
                 **env,
                 "MOTORINN_XTIME_TOYOTA_URL": malformed_url,

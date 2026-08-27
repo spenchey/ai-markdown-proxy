@@ -1,16 +1,16 @@
 # Graph Report - ai-markdown-proxy  (2026-08-27)
 
 ## Corpus Check
-- 35 files · ~22,102 words
+- 37 files · ~23,324 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 363 nodes · 694 edges · 36 communities (27 shown, 9 thin omitted)
+- 380 nodes · 729 edges · 38 communities (28 shown, 10 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2031a871`
+- Built from commit: `72021725`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -51,37 +51,37 @@
 - deploy-monitoring.sh
 - __init__.py
 - user-data.sh
+- xtime_preflight.py
+- parse_agent_query
 
 ## God Nodes (most connected - your core abstractions)
 1. `Site` - 22 edges
-2. `AgentAccessTests` - 21 edges
-3. `resolve_site()` - 19 edges
+2. `AgentAccessTests` - 22 edges
+3. `resolve_site()` - 20 edges
 4. `vehicle_search()` - 15 edges
 5. `serve_agent_query()` - 14 edges
 6. `_text()` - 12 edges
 7. `_vehicle_projection()` - 12 edges
-8. `ProxyTests` - 12 edges
-9. `What It Serves` - 12 edges
-10. `InvalidRequest` - 11 edges
+8. `api_error()` - 12 edges
+9. `ProxyTests` - 12 edges
+10. `What It Serves` - 12 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `InvalidRequest` --inherits--> `ValueError`  [EXTRACTED]
-  agent_access.py →   _Bridges community 1 → community 7_
-- `build_query_documents()` --references--> `Site`  [EXTRACTED]
-  server.py → server.py  _Bridges community 0 → community 29_
-- `canonical_url()` --references--> `Site`  [EXTRACTED]
-  server.py → server.py  _Bridges community 0 → community 7_
-- `build_query_documents()` --calls--> `rendered_offers()`  [EXTRACTED]
-  server.py → server.py  _Bridges community 7 → community 29_
+  agent_access.py →   _Bridges community 1 → community 37_
+- `api_response()` --references--> `Any`  [EXTRACTED]
+  server.py →   _Bridges community 0 → community 7_
+- `serve_agent_query()` --calls--> `parse_agent_query()`  [EXTRACTED]
+  server.py → server.py  _Bridges community 37 → community 7_
 
 ## Import Cycles
 - None detected.
 
-## Communities (36 total, 9 thin omitted)
+## Communities (38 total, 10 thin omitted)
 
 ### Community 0 - "server.py"
-Cohesion: 0.11
-Nodes (39): agent_query_health(), api_inventory_detail(), api_inventory_search(), canonical_catalog_link(), classify_bot(), display_price(), finish_request(), full_health() (+31 more)
+Cohesion: 0.09
+Nodes (64): agent_query_health(), api_inventory_detail(), api_inventory_search(), build_query_documents(), build_static_query_documents(), cache_get(), cache_set(), canonical_catalog_link() (+56 more)
 
 ### Community 1 - "agent_access.py"
 Cohesion: 0.17
@@ -100,16 +100,16 @@ Cohesion: 0.12
 Nodes (15): Agent Access Foundation v1, Confirmed test seams, Current progress, Definition of done for this slice, Deployment boundary, Error contract, `GET /api/v1/locations`, `GET /api/v1/parts-information` (+7 more)
 
 ### Community 7 - "build_static_query_documents"
-Cohesion: 0.12
-Nodes (48): Exception, Response, agent_query_error(), api_error(), api_response(), cache_get(), cache_set(), cache_stats() (+40 more)
+Cohesion: 0.14
+Nodes (35): Exception, Response, agent_query_error(), api_error(), api_response(), cache_stats(), gbp_review_operations(), gbp_review_operations_html() (+27 more)
 
 ### Community 9 - "Transaction security contract"
 Cohesion: 0.20
 Nodes (9): Approval contract, Audit and privacy contract, Boundary, Failure and isolation tests, Idempotency contract, OAuth and identity requirements, Receipt contract, State invariant (+1 more)
 
 ### Community 10 - "Xtime Schedule and DealerOn integration runbook"
-Cohesion: 0.22
-Nodes (8): Agent transaction boundary, Cutover and rollback, DealerOn installation request, Pre-activation checks, Proven public pattern, Required Cox/Xtime onboarding inputs, Runtime configuration, Xtime Schedule and DealerOn integration runbook
+Cohesion: 0.20
+Nodes (9): Agent transaction boundary, Cutover and rollback, DealerOn installation request, Pre-activation checks, Proven public pattern, Required Cox/Xtime onboarding inputs, Runtime configuration, Stable Motor Inn handoff (+1 more)
 
 ### Community 11 - "Motor Inn Auto Group — Contact and Regular Hours"
 Cohesion: 0.29
@@ -183,27 +183,31 @@ Nodes (3): Acceptance Criteria, DealerOn Implementation Request, Required URLs
 Cohesion: 0.83
 Nodes (3): Path, main(), sha256()
 
-### Community 29 - "parse_agent_query"
-Cohesion: 0.24
-Nodes (14): build_query_documents(), build_static_query_documents(), content_manifest_generated_at(), first_public_url(), inventory_freshness(), lexical_score(), lexical_text(), lexical_tokens() (+6 more)
+### Community 36 - "xtime_preflight.py"
+Cohesion: 0.70
+Nodes (4): main(), preflight(), _requirement_satisfied(), _safe_site_status()
+
+### Community 37 - "parse_agent_query"
+Cohesion: 0.83
+Nodes (4): normalize_query(), parse_agent_query(), query_limit(), ValueError
 
 ## Knowledge Gaps
-- **98 isolated node(s):** `files`, `generatedAt`, `schema`, `sourcePackage`, `deploy-monitoring.sh script` (+93 more)
+- **99 isolated node(s):** `files`, `generatedAt`, `schema`, `sourcePackage`, `deploy-monitoring.sh script` (+94 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **10 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **What connects `files`, `generatedAt`, `schema` to the rest of the system?**
-  _98 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _99 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `server.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.11153846153846154 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09362279511533243 - nodes in this community are weakly interconnected._
 - **Should `What It Serves` be split into smaller, more focused modules?**
   _Cohesion score 0.1111111111111111 - nodes in this community are weakly interconnected._
 - **Should `Agent Access Foundation v1` be split into smaller, more focused modules?**
   _Cohesion score 0.125 - nodes in this community are weakly interconnected._
 - **Should `AgentAccessTests` be split into smaller, more focused modules?**
-  _Cohesion score 0.11255411255411256 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1067193675889328 - nodes in this community are weakly interconnected._
 - **Should `build_static_query_documents` be split into smaller, more focused modules?**
-  _Cohesion score 0.11918367346938775 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.13781512605042018 - nodes in this community are weakly interconnected._

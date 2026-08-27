@@ -436,7 +436,11 @@ def _available_read_operations() -> dict[str, bool]:
 
 
 def _valid_xtime_url(value: str | None) -> bool:
-    if not value or len(value) > 2048:
+    if (
+        not value
+        or len(value) > 2048
+        or any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
         return False
     try:
         parsed = urlsplit(value)
@@ -458,29 +462,66 @@ def _valid_xtime_url(value: str | None) -> bool:
     query = parse_qs(parsed.query, keep_blank_values=True)
     if set(query) - {"webkey", "WMODE", "skipredirect", "variant"}:
         return False
+    if any(len(values) != 1 or not values[0] for values in query.values()):
+        return False
     webkeys = query.get("webkey", [])
     return len(webkeys) == 1 and bool(webkeys[0].strip())
+
+
+def xtime_configuration_preflight(site: Any, environ: Mapping[str, str]) -> dict[str, Any]:
+    """Return safe, independently evaluated Xtime activation gate state."""
+    suffix = SITE_ENV_SUFFIX[site.key]
+    configured_url = environ.get(f"MOTORINN_XTIME_{suffix}_URL")
+    active_raw = environ.get(f"MOTORINN_XTIME_{suffix}_ACTIVE", "false")
+    verified_rooftop = environ.get(f"MOTORINN_XTIME_{suffix}_VERIFIED_ROOFTOP", "")
+    active_flag_valid = active_raw.casefold() in {"true", "false"}
+    active = active_flag_valid and active_raw.casefold() == "true"
+    configured = _valid_xtime_url(configured_url)
+    configured_value_present = bool(configured_url)
+    verified = verified_rooftop == site.key
+    verified_value_present = bool(verified_rooftop)
+
+    error: str | None = None
+    if not active_flag_valid:
+        error = "invalid_activation_flag"
+    elif configured_value_present and not configured:
+        error = "invalid_staged_url"
+    elif active and (not configured or not verified):
+        error = "invalid_active_configuration"
+    elif verified_value_present and not verified:
+        error = "invalid_rooftop_binding"
+
+    status = {
+        "targetProvider": XTIME_PROVIDER,
+        "status": "invalid" if error else ("active" if active else "planned"),
+        "configured": configured,
+        "rooftopBindingVerified": verified,
+        "active": active,
+        "configurationValid": error is None,
+    }
+    if error:
+        status["error"] = error
+    return status
 
 
 def _xtime_transition(site: Any, environ: Mapping[str, str]) -> tuple[dict[str, Any], str | None]:
     suffix = SITE_ENV_SUFFIX[site.key]
     configured_url = environ.get(f"MOTORINN_XTIME_{suffix}_URL")
-    active = environ.get(f"MOTORINN_XTIME_{suffix}_ACTIVE", "false").casefold() == "true"
-    verified_rooftop = environ.get(f"MOTORINN_XTIME_{suffix}_VERIFIED_ROOFTOP", "")
-    configured = _valid_xtime_url(configured_url)
-    verified = verified_rooftop == site.key
-    if active and (not configured or not verified):
+    evaluation = xtime_configuration_preflight(site, environ)
+    if evaluation.get("error") == "invalid_activation_flag" or (
+        evaluation["active"] and not evaluation["configurationValid"]
+    ):
         raise ConfigurationUnavailable(
             "active Xtime configuration requires a valid consumer URL and an explicitly verified rooftop binding"
         )
     transition = {
-        "targetProvider": XTIME_PROVIDER,
-        "status": "active" if active else "planned",
-        "configured": configured,
-        "rooftopBindingVerified": verified,
-        "active": active,
+        "targetProvider": evaluation["targetProvider"],
+        "status": "active" if evaluation["active"] else "planned",
+        "configured": evaluation["configured"],
+        "rooftopBindingVerified": evaluation["rooftopBindingVerified"],
+        "active": evaluation["active"],
     }
-    return transition, configured_url if active else None
+    return transition, configured_url if evaluation["active"] else None
 
 
 def service_information(site: Any, environ: Mapping[str, str] | None = None) -> dict[str, Any]:

@@ -1118,7 +1118,7 @@ def mcp_tools() -> list[dict[str, Any]]:
             "title": "Get Motor Inn service information",
             "description": "Get the current public service journey and its capability state. This tool never confirms an appointment.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-            "outputSchema": mcp_component_schema("CapabilityInformationResponse"),
+            "outputSchema": mcp_component_schema("ServiceInformationResponse"),
             "annotations": read_annotations,
         },
         {

@@ -23,30 +23,19 @@ REQUIREMENTS = ("none", "configured", "verified", "active")
 
 def _safe_site_status(site: object) -> tuple[dict[str, object], bool]:
     stable_handoff_url = f"https://{site.ai_host}/service-scheduler"
-    try:
-        service = agent_access.service_information(site, os.environ)
-    except agent_access.ConfigurationUnavailable:
-        return ({
-            "site": site.key,
-            "provider": agent_access.XTIME_PROVIDER,
-            "configured": False,
-            "rooftopBindingVerified": False,
-            "active": False,
-            "status": "invalid",
-            "stableHandoffUrl": stable_handoff_url,
-            "error": "invalid_active_configuration",
-        }, False)
-
-    transition = service["providerTransition"]
-    return ({
+    evaluation = agent_access.xtime_configuration_preflight(site, os.environ)
+    status = {
         "site": site.key,
-        "provider": transition["targetProvider"],
-        "configured": transition["configured"],
-        "rooftopBindingVerified": transition["rooftopBindingVerified"],
-        "active": transition["active"],
-        "status": transition["status"],
-        "stableHandoffUrl": service["stableHandoffUrl"],
-    }, True)
+        "provider": evaluation["targetProvider"],
+        "configured": evaluation["configured"],
+        "rooftopBindingVerified": evaluation["rooftopBindingVerified"],
+        "active": evaluation["active"],
+        "status": evaluation["status"],
+        "stableHandoffUrl": stable_handoff_url,
+    }
+    if "error" in evaluation:
+        status["error"] = evaluation["error"]
+    return status, bool(evaluation["configurationValid"])
 
 
 def _requirement_satisfied(requirement: str, sites: list[dict[str, object]]) -> bool:
