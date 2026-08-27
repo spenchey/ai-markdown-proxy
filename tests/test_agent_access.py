@@ -106,8 +106,19 @@ class AgentAccessTests(unittest.TestCase):
         self.assertIn("503", handoff_responses)
         service_schema = document["components"]["schemas"]["ServiceInformationResponse"]
         service_required = service_schema["allOf"][1]["required"]
+        self.assertIn("serviceLocation", service_required)
         self.assertIn("stableHandoffUrl", service_required)
         self.assertIn("providerTransition", service_required)
+        provider_transition = document["components"]["schemas"]["ProviderTransition"]
+        self.assertIn("locationBindingVerified", provider_transition["required"])
+        self.assertNotIn("rooftopBindingVerified", provider_transition["properties"])
+        service_examples = document["paths"]["/api/v1/service-information"]["get"]["responses"]["200"]["content"]["application/json"]["examples"]
+        for example in service_examples.values():
+            self.assertEqual(example["value"]["serviceLocation"]["key"], "carroll")
+            self.assertEqual(
+                example["value"]["providerTransition"]["locationKey"],
+                "carroll",
+            )
         self.assertTrue(all(set(path_item) <= {"get"} for path_item in document["paths"].values()))
         self.assertIn("ETag", response.headers)
         self.assertIn("/openapi.json", self.client.get("/llms.txt", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True))
@@ -306,14 +317,96 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(toyota["authoritativeSystem"], "DealerOn appointment request form")
         self.assertEqual(toyota["providerTransition"], {
             "targetProvider": "Xtime Schedule by Cox Automotive",
+            "locationKey": "carroll",
             "status": "planned",
             "configured": False,
-            "rooftopBindingVerified": False,
+            "locationBindingVerified": False,
             "active": False,
         })
         self.assertEqual(parts["capabilityState"], "requested_only")
         self.assertFalse(parts["availableOperations"]["confirm"])
         self.assertIn("not a stock check", parts["notice"])
+
+    def test_all_site_brands_share_the_single_carroll_service_location(self) -> None:
+        responses = [
+            self.client.get(
+                "/api/v1/service-information",
+                headers={"Host": host},
+            ).get_json()
+            for host in (
+                "ai.motorinnautogroup.com",
+                "ai.motorinnofcarroll.com",
+                "ai.motorinntoyotaofcarroll.com",
+            )
+        ]
+
+        self.assertEqual(
+            {response["site"]["key"] for response in responses},
+            {"motorinnautogroup", "motorinnchevy", "motorinntoyota"},
+        )
+        self.assertEqual(
+            {json.dumps(response["serviceLocation"], sort_keys=True) for response in responses},
+            {
+                json.dumps({
+                    "key": "carroll",
+                    "name": "Carroll",
+                    "address": {
+                        "streetAddress": "1526 Le Clark Road",
+                        "addressLocality": "Carroll",
+                        "addressRegion": "IA",
+                        "postalCode": "51401",
+                        "addressCountry": "US",
+                    },
+                    "timeZone": "America/Chicago",
+                }, sort_keys=True)
+            },
+        )
+        self.assertTrue(all(
+            response["providerTransition"]["locationKey"] == "carroll"
+            for response in responses
+        ))
+
+    def test_one_verified_carroll_xtime_configuration_serves_every_site_brand(self) -> None:
+        environment = {
+            "MOTORINN_XTIME_CARROLL_URL": "https://consumer.xtime.com/scheduling/?webkey=carroll-key",
+            "MOTORINN_XTIME_CARROLL_ACTIVE": "true",
+            "MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION": "carroll",
+        }
+        hosts = (
+            "ai.motorinnautogroup.com",
+            "ai.motorinnofcarroll.com",
+            "ai.motorinntoyotaofcarroll.com",
+        )
+
+        with patch.dict("server.os.environ", environment, clear=False):
+            responses = [
+                self.client.get(
+                    "/api/v1/service-information",
+                    headers={"Host": host},
+                ).get_json()
+                for host in hosts
+            ]
+            handoffs = [
+                self.client.get(
+                    "/service-scheduler",
+                    headers={"Host": host},
+                )
+                for host in hosts
+            ]
+
+        self.assertTrue(all(
+            response["providerTransition"]["active"] is True
+            for response in responses
+        ))
+        self.assertEqual(
+            {response["actionUrl"] for response in responses},
+            {environment["MOTORINN_XTIME_CARROLL_URL"]},
+        )
+        self.assertTrue(all(response.status_code == 302 for response in handoffs))
+        self.assertEqual(
+            {response.headers["Location"] for response in handoffs},
+            {environment["MOTORINN_XTIME_CARROLL_URL"]},
+        )
 
     def test_stable_service_handoff_keeps_current_scheduler_until_verified_cutover(self) -> None:
         current = self.client.get(
@@ -334,9 +427,9 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(service["stableHandoffUrl"], "https://ai.motorinntoyotaofcarroll.com/service-scheduler")
 
         active_env = {
-            "MOTORINN_XTIME_TOYOTA_URL": "https://consumer.xtime.com/scheduling/?webkey=verified-key",
-            "MOTORINN_XTIME_TOYOTA_ACTIVE": "true",
-            "MOTORINN_XTIME_TOYOTA_VERIFIED_ROOFTOP": "motorinntoyota",
+            "MOTORINN_XTIME_CARROLL_URL": "https://consumer.xtime.com/scheduling/?webkey=verified-key",
+            "MOTORINN_XTIME_CARROLL_ACTIVE": "true",
+            "MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION": "carroll",
         }
         with patch.dict("server.os.environ", active_env, clear=False):
             active = self.client.get(
@@ -344,11 +437,11 @@ class AgentAccessTests(unittest.TestCase):
                 headers={"Host": "ai.motorinntoyotaofcarroll.com"},
             )
         self.assertEqual(active.status_code, 302)
-        self.assertEqual(active.headers["Location"], active_env["MOTORINN_XTIME_TOYOTA_URL"])
+        self.assertEqual(active.headers["Location"], active_env["MOTORINN_XTIME_CARROLL_URL"])
 
         with patch.dict("server.os.environ", {
             **active_env,
-            "MOTORINN_XTIME_TOYOTA_VERIFIED_ROOFTOP": "wrong-rooftop",
+            "MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION": "wrong-location",
         }, clear=False):
             invalid = self.client.get(
                 "/service-scheduler",
@@ -359,19 +452,19 @@ class AgentAccessTests(unittest.TestCase):
 
     def test_xtime_activation_requires_an_explicit_gate_and_valid_consumer_url(self) -> None:
         env = {
-            "MOTORINN_XTIME_TOYOTA_URL": "https://consumer.xtime.com/scheduling/?webkey=dealer-key",
-            "MOTORINN_XTIME_TOYOTA_ACTIVE": "true",
-            "MOTORINN_XTIME_TOYOTA_VERIFIED_ROOFTOP": "motorinntoyota",
+            "MOTORINN_XTIME_CARROLL_URL": "https://consumer.xtime.com/scheduling/?webkey=dealer-key",
+            "MOTORINN_XTIME_CARROLL_ACTIVE": "true",
+            "MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION": "carroll",
         }
         with patch.dict("server.os.environ", env, clear=False):
             active = self.client.get("/api/v1/service-information", headers={"Host": "ai.motorinntoyotaofcarroll.com"})
 
         self.assertEqual(active.status_code, 200)
         self.assertEqual(active.get_json()["authoritativeSystem"], "Xtime Schedule by Cox Automotive")
-        self.assertEqual(active.get_json()["actionUrl"], env["MOTORINN_XTIME_TOYOTA_URL"])
+        self.assertEqual(active.get_json()["actionUrl"], env["MOTORINN_XTIME_CARROLL_URL"])
         self.assertTrue(active.get_json()["providerTransition"]["active"])
 
-        with patch.dict("server.os.environ", {**env, "MOTORINN_XTIME_TOYOTA_ACTIVE": "false"}, clear=False):
+        with patch.dict("server.os.environ", {**env, "MOTORINN_XTIME_CARROLL_ACTIVE": "false"}, clear=False):
             staged = self.client.get("/api/v1/service-information", headers={"Host": "ai.motorinntoyotaofcarroll.com"})
         self.assertEqual(staged.get_json()["providerTransition"]["status"], "planned")
         self.assertTrue(staged.get_json()["providerTransition"]["configured"])
@@ -379,8 +472,8 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(staged.get_json()["authoritativeSystem"], "DealerOn appointment request form")
 
         with patch.dict("server.os.environ", {
-            "MOTORINN_XTIME_TOYOTA_URL": "https://evil.example/scheduling/?webkey=dealer-key",
-            "MOTORINN_XTIME_TOYOTA_ACTIVE": "true",
+            "MOTORINN_XTIME_CARROLL_URL": "https://evil.example/scheduling/?webkey=dealer-key",
+            "MOTORINN_XTIME_CARROLL_ACTIVE": "true",
         }, clear=False):
             invalid = self.client.get("/api/v1/service-information", headers={"Host": "ai.motorinntoyotaofcarroll.com"})
         self.assertEqual(invalid.status_code, 503)
@@ -395,7 +488,7 @@ class AgentAccessTests(unittest.TestCase):
         ):
             with self.subTest(malformed_url=malformed_url), patch.dict("server.os.environ", {
                 **env,
-                "MOTORINN_XTIME_TOYOTA_URL": malformed_url,
+                "MOTORINN_XTIME_CARROLL_URL": malformed_url,
             }, clear=False):
                 malformed = self.client.get("/api/v1/service-information", headers={"Host": "ai.motorinntoyotaofcarroll.com"})
                 self.assertEqual(malformed.status_code, 503)
@@ -542,16 +635,16 @@ class AgentAccessTests(unittest.TestCase):
             self.assertEqual(tool_result["structuredContent"], http_payload)
 
         active_env = {
-            "MOTORINN_XTIME_TOYOTA_URL": "https://consumer.xtime.com/scheduling/?webkey=verified-key",
-            "MOTORINN_XTIME_TOYOTA_ACTIVE": "true",
-            "MOTORINN_XTIME_TOYOTA_VERIFIED_ROOFTOP": "motorinntoyota",
+            "MOTORINN_XTIME_CARROLL_URL": "https://consumer.xtime.com/scheduling/?webkey=verified-key",
+            "MOTORINN_XTIME_CARROLL_ACTIVE": "true",
+            "MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION": "carroll",
         }
         with patch.dict("server.os.environ", active_env, clear=False):
             active_http = self.client.get("/api/v1/service-information", headers=headers).get_json()
             active_mcp = call("get_service_information")
         self.assertEqual(active_mcp["structuredContent"], active_http)
 
-        with patch.dict("server.os.environ", {**active_env, "MOTORINN_XTIME_TOYOTA_URL": "https://["}, clear=False):
+        with patch.dict("server.os.environ", {**active_env, "MOTORINN_XTIME_CARROLL_URL": "https://["}, clear=False):
             invalid_http = self.client.get("/api/v1/service-information", headers=headers)
             invalid_mcp = call("get_service_information")
         self.assertEqual(invalid_http.status_code, 503)

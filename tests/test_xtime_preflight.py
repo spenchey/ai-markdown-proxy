@@ -15,19 +15,15 @@ SCRIPT = REPOSITORY / "tools" / "xtime_preflight.py"
 class XtimePreflightTests(unittest.TestCase):
     @staticmethod
     def configured_environment(active=False, verified=False):
-        environment = {}
-        for suffix, site_key in (
-            ("GROUP", "motorinnautogroup"),
-            ("CHEVY", "motorinnchevy"),
-            ("TOYOTA", "motorinntoyota"),
-        ):
-            environment[f"MOTORINN_XTIME_{suffix}_URL"] = (
-                f"https://consumer.xtime.com/scheduling?webkey=secret-{suffix.casefold()}"
+        environment = {
+            "MOTORINN_XTIME_CARROLL_URL": (
+                "https://consumer.xtime.com/scheduling?webkey=secret-carroll"
             )
-            if active:
-                environment[f"MOTORINN_XTIME_{suffix}_ACTIVE"] = "true"
-            if verified:
-                environment[f"MOTORINN_XTIME_{suffix}_VERIFIED_ROOFTOP"] = site_key
+        }
+        if active:
+            environment["MOTORINN_XTIME_CARROLL_ACTIVE"] = "true"
+        if verified:
+            environment["MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION"] = "carroll"
         return environment
 
     def run_preflight(self, extra_env=None, requirement="none"):
@@ -54,14 +50,16 @@ class XtimePreflightTests(unittest.TestCase):
         self.assertEqual(payload["schema"], "motorinn.xtimePreflight.v1")
         self.assertTrue(payload["configurationValid"])
         self.assertTrue(payload["requirementSatisfied"])
-        self.assertEqual({site["site"] for site in payload["sites"]}, {
-            "motorinnautogroup", "motorinnchevy", "motorinntoyota",
-        })
-        self.assertTrue(all(not site["configured"] for site in payload["sites"]))
+        self.assertEqual(len(payload["locations"]), 1)
+        location = payload["locations"][0]
+        self.assertEqual(location["location"], "carroll")
+        self.assertEqual(location["name"], "Carroll")
+        self.assertFalse(location["configured"])
+        self.assertEqual(len(location["stableHandoffUrls"]), 3)
         self.assertNotIn("webkey", result.stdout.casefold())
         self.assertNotIn("consumer.xtime.com", result.stdout.casefold())
 
-    def test_configured_requirement_checks_all_rooftops_without_disclosing_urls(self):
+    def test_configured_requirement_checks_carroll_without_disclosing_urls(self):
         result = self.run_preflight(
             self.configured_environment(), requirement="configured"
         )
@@ -70,14 +68,15 @@ class XtimePreflightTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertTrue(payload["configurationValid"])
         self.assertTrue(payload["requirementSatisfied"])
-        self.assertTrue(all(site["configured"] for site in payload["sites"]))
-        self.assertTrue(all(not site["active"] for site in payload["sites"]))
+        location = payload["locations"][0]
+        self.assertTrue(location["configured"])
+        self.assertFalse(location["active"])
         self.assertNotIn("secret-", result.stdout.casefold())
         self.assertNotIn("consumer.xtime.com", result.stdout.casefold())
 
     def test_invalid_active_configuration_fails_closed_without_disclosing_values(self):
         environment = self.configured_environment(active=True, verified=True)
-        environment["MOTORINN_XTIME_TOYOTA_VERIFIED_ROOFTOP"] = "wrong-rooftop"
+        environment["MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION"] = "wrong-location"
 
         result = self.run_preflight(environment, requirement="active")
 
@@ -85,17 +84,17 @@ class XtimePreflightTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertFalse(payload["configurationValid"])
         self.assertFalse(payload["requirementSatisfied"])
-        toyota = next(site for site in payload["sites"] if site["site"] == "motorinntoyota")
-        self.assertEqual(toyota["status"], "invalid")
-        self.assertTrue(toyota["configured"])
-        self.assertFalse(toyota["rooftopBindingVerified"])
-        self.assertEqual(toyota["error"], "invalid_active_configuration")
-        self.assertNotIn("wrong-rooftop", result.stdout.casefold())
+        location = payload["locations"][0]
+        self.assertEqual(location["status"], "invalid")
+        self.assertTrue(location["configured"])
+        self.assertFalse(location["locationBindingVerified"])
+        self.assertEqual(location["error"], "invalid_active_configuration")
+        self.assertNotIn("wrong-location", result.stdout.casefold())
         self.assertNotIn("secret-", result.stdout.casefold())
 
     def test_malformed_inactive_staging_and_activation_flags_are_invalid(self):
         staged = self.configured_environment()
-        staged["MOTORINN_XTIME_TOYOTA_URL"] = (
+        staged["MOTORINN_XTIME_CARROLL_URL"] = (
             "https://evil.example/scheduling?webkey=do-not-print"
         )
         invalid_url = self.run_preflight(staged)
@@ -103,29 +102,23 @@ class XtimePreflightTests(unittest.TestCase):
         self.assertEqual(invalid_url.returncode, 2, invalid_url.stderr)
         invalid_url_payload = json.loads(invalid_url.stdout)
         self.assertFalse(invalid_url_payload["configurationValid"])
-        toyota = next(
-            site for site in invalid_url_payload["sites"]
-            if site["site"] == "motorinntoyota"
-        )
-        self.assertEqual(toyota["error"], "invalid_staged_url")
+        location = invalid_url_payload["locations"][0]
+        self.assertEqual(location["error"], "invalid_staged_url")
         self.assertNotIn("evil.example", invalid_url.stdout)
         self.assertNotIn("do-not-print", invalid_url.stdout)
 
         malformed_flag = self.configured_environment()
-        malformed_flag["MOTORINN_XTIME_TOYOTA_ACTIVE"] = "tru"
+        malformed_flag["MOTORINN_XTIME_CARROLL_ACTIVE"] = "tru"
         invalid_flag = self.run_preflight(malformed_flag)
 
         self.assertEqual(invalid_flag.returncode, 2, invalid_flag.stderr)
         invalid_flag_payload = json.loads(invalid_flag.stdout)
         self.assertFalse(invalid_flag_payload["configurationValid"])
-        toyota = next(
-            site for site in invalid_flag_payload["sites"]
-            if site["site"] == "motorinntoyota"
-        )
-        self.assertEqual(toyota["error"], "invalid_activation_flag")
-        self.assertFalse(toyota["active"])
+        location = invalid_flag_payload["locations"][0]
+        self.assertEqual(location["error"], "invalid_activation_flag")
+        self.assertFalse(location["active"])
 
-    def test_active_requirement_succeeds_only_after_exact_rooftop_verification(self):
+    def test_active_requirement_succeeds_only_after_exact_location_verification(self):
         result = self.run_preflight(
             self.configured_environment(active=True, verified=True),
             requirement="active",
@@ -135,7 +128,9 @@ class XtimePreflightTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertTrue(payload["configurationValid"])
         self.assertTrue(payload["requirementSatisfied"])
-        self.assertTrue(all(site["active"] for site in payload["sites"]))
+        location = payload["locations"][0]
+        self.assertTrue(location["locationBindingVerified"])
+        self.assertTrue(location["active"])
 
 
 if __name__ == "__main__":

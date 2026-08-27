@@ -1,6 +1,6 @@
 # Agent Access Foundation v1
 
-Status: approved and implemented locally; not deployed
+Status: approved and implemented on the isolated branch; production deployment pending
 Branch: `codex/ai-agent-access-foundation`
 Base: `origin/main` at `2031a87`
 
@@ -91,7 +91,7 @@ Returns public service information and the canonical customer journey:
 
 The response must state `capabilityState` as `information_only` for the group location chooser, `external_handoff` for a scheduler handoff, or `requested_only` for a follow-up request. It cannot advertise live slots or confirmed booking.
 
-Motor Inn plans to move to Xtime Schedule by Cox Automotive in September 2026. The runtime includes separate per-rooftop Xtime consumer URLs and activation flags. It reports the transition as `planned` until an operator supplies a valid `https://consumer.xtime.com/scheduling?...&webkey=...` URL and explicitly activates that rooftop. An invalid active configuration fails closed. This is a website handoff seam, not an Xtime appointment API. See `docs/xtime-dealeron-integration.md`.
+Motor Inn plans to move to Xtime Schedule by Cox Automotive in September 2026. Motor Inn has one service location in Carroll and three branded website entry points. The runtime therefore has one Carroll Xtime consumer URL and activation gate, while each AI host retains its own stable `/service-scheduler` URL. It reports the transition as `planned` until an operator supplies a valid `https://consumer.xtime.com/scheduling?...&webkey=...` URL, verifies the Carroll location binding, and activates it. An invalid active configuration fails closed. This is a website handoff seam, not an Xtime appointment API. See `docs/xtime-dealeron-integration.md`.
 
 ### `GET /api/v1/parts-information`
 
@@ -167,4 +167,4 @@ Proposed behavioral tests:
 - The transaction security contract is documented in `docs/transaction-security-contract.md`.
 - Runtime routes implement the public projection, typed errors, host isolation, staged Xtime handoff, and read-only MCP tools.
 - HTTP and MCP return equivalent service results and equivalent vehicle-search results for the same fixture.
-- The local suite passes 49 tests, including the stable service handoff and secret-safe Xtime configuration preflight. The branch has not been deployed and no Xtime tenant or appointment was exercised.
+- The local suite passes 53 tests, including the single-Carroll service-location contract, three brand-specific stable handoffs, DealerOn organization handoff package, and secret-safe one-location Xtime preflight. The branch has not been deployed and no Xtime tenant or appointment was exercised.

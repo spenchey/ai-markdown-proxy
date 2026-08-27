@@ -1,16 +1,16 @@
 # Graph Report - ai-markdown-proxy  (2026-08-27)
 
 ## Corpus Check
-- 37 files · ~23,740 words
+- 39 files · ~24,717 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 383 nodes · 736 edges · 38 communities (28 shown, 10 thin omitted)
+- 402 nodes · 752 edges · 40 communities (30 shown, 10 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2505439c`
+- Built from commit: `c03e5899`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -53,10 +53,12 @@
 - user-data.sh
 - xtime_preflight.py
 - parse_agent_query
+- DealerOn site and page requirements
+- DealerOn acceptance checklist
 
 ## God Nodes (most connected - your core abstractions)
-1. `Site` - 22 edges
-2. `AgentAccessTests` - 22 edges
+1. `AgentAccessTests` - 24 edges
+2. `Site` - 22 edges
 3. `resolve_site()` - 20 edges
 4. `vehicle_search()` - 15 edges
 5. `serve_agent_query()` - 14 edges
@@ -77,11 +79,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (38 total, 10 thin omitted)
+## Communities (40 total, 10 thin omitted)
 
 ### Community 0 - "server.py"
-Cohesion: 0.09
-Nodes (65): agent_query_health(), api_inventory_detail(), api_inventory_search(), build_query_documents(), build_static_query_documents(), cache_get(), cache_set(), canonical_catalog_link() (+57 more)
+Cohesion: 0.10
+Nodes (62): agent_query_health(), api_inventory_detail(), api_inventory_search(), build_query_documents(), build_static_query_documents(), cache_get(), cache_set(), canonical_catalog_link() (+54 more)
 
 ### Community 1 - "agent_access.py"
 Cohesion: 0.16
@@ -100,8 +102,8 @@ Cohesion: 0.12
 Nodes (15): Agent Access Foundation v1, Confirmed test seams, Current progress, Definition of done for this slice, Deployment boundary, Error contract, `GET /api/v1/locations`, `GET /api/v1/parts-information` (+7 more)
 
 ### Community 7 - "build_static_query_documents"
-Cohesion: 0.14
-Nodes (34): Exception, Response, agent_query_error(), api_error(), api_response(), cache_stats(), gbp_review_operations(), gbp_review_operations_html() (+26 more)
+Cohesion: 0.13
+Nodes (37): Exception, Response, agent_query_error(), api_error(), api_response(), cache_stats(), gbp_review_operations(), gbp_review_operations_html() (+29 more)
 
 ### Community 9 - "Transaction security contract"
 Cohesion: 0.20
@@ -109,7 +111,7 @@ Nodes (9): Approval contract, Audit and privacy contract, Boundary, Failure and 
 
 ### Community 10 - "Xtime Schedule and DealerOn integration runbook"
 Cohesion: 0.20
-Nodes (9): Agent transaction boundary, Cutover and rollback, DealerOn installation request, Pre-activation checks, Proven public pattern, Required Cox/Xtime onboarding inputs, Runtime configuration, Stable Motor Inn handoff (+1 more)
+Nodes (9): Correct operating model, Cutover and rollback, DealerOn installation request, Pre-activation checks, Required Cox/Xtime inputs, Runtime configuration, Stable Motor Inn entry points, Transaction boundary (+1 more)
 
 ### Community 11 - "Motor Inn Auto Group — Contact and Regular Hours"
 Cohesion: 0.29
@@ -185,14 +187,22 @@ Nodes (3): Path, main(), sha256()
 
 ### Community 36 - "xtime_preflight.py"
 Cohesion: 0.70
-Nodes (4): main(), preflight(), _requirement_satisfied(), _safe_site_status()
+Nodes (4): main(), preflight(), _requirement_satisfied(), _safe_location_status()
 
 ### Community 37 - "parse_agent_query"
 Cohesion: 0.83
 Nodes (4): normalize_query(), parse_agent_query(), query_limit(), ValueError
 
+### Community 38 - "DealerOn site and page requirements"
+Cohesion: 0.25
+Nodes (7): Business model, DealerOn site and page requirements, Global discovery installation, Parts pages, Return package, Service scheduling pages, Vehicle search and vehicle pages
+
+### Community 39 - "DealerOn acceptance checklist"
+Cohesion: 0.29
+Nodes (6): DealerOn acceptance checklist, Discovery, Evidence and rollback, Parts access, Service access, Vehicle access
+
 ## Knowledge Gaps
-- **99 isolated node(s):** `files`, `generatedAt`, `schema`, `sourcePackage`, `deploy-monitoring.sh script` (+94 more)
+- **110 isolated node(s):** `files`, `generatedAt`, `schema`, `sourcePackage`, `deploy-monitoring.sh script` (+105 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **10 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -200,14 +210,14 @@ Nodes (4): normalize_query(), parse_agent_query(), query_limit(), ValueError
 _Questions this graph is uniquely positioned to answer:_
 
 - **What connects `files`, `generatedAt`, `schema` to the rest of the system?**
-  _99 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _110 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `server.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.09174714661984197 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09759615384615385 - nodes in this community are weakly interconnected._
 - **Should `What It Serves` be split into smaller, more focused modules?**
   _Cohesion score 0.1111111111111111 - nodes in this community are weakly interconnected._
 - **Should `Agent Access Foundation v1` be split into smaller, more focused modules?**
   _Cohesion score 0.125 - nodes in this community are weakly interconnected._
 - **Should `AgentAccessTests` be split into smaller, more focused modules?**
-  _Cohesion score 0.1067193675889328 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09666666666666666 - nodes in this community are weakly interconnected._
 - **Should `build_static_query_documents` be split into smaller, more focused modules?**
-  _Cohesion score 0.1408199643493761 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.12612612612612611 - nodes in this community are weakly interconnected._

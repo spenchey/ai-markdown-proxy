@@ -36,6 +36,36 @@ class DealerOnDiscoveryHandoffTests(unittest.TestCase):
             self.assertIn("User-agent: GPTBot\nDisallow: /", policy)
             self.assertIn("User-agent: ClaudeBot\nDisallow: /", policy)
 
+    def test_handoff_covers_inventory_service_and_parts_for_agents(self) -> None:
+        request = (HANDOFF / "DEALERON_REQUEST.md").read_text(encoding="utf-8")
+        page_requirements = (HANDOFF / "SITE_PAGE_REQUIREMENTS.md").read_text(
+            encoding="utf-8"
+        )
+        acceptance = (HANDOFF / "ACCEPTANCE_CHECKLIST.md").read_text(
+            encoding="utf-8"
+        )
+
+        for capability in ("vehicle", "service", "parts"):
+            self.assertIn(capability, request.casefold())
+            self.assertIn(capability, page_requirements.casefold())
+            self.assertIn(capability, acceptance.casefold())
+        self.assertIn("one physical service location", page_requirements.casefold())
+        self.assertIn("1526 Le Clark Road", page_requirements)
+        self.assertIn("do not create three Xtime locations", page_requirements)
+
+    def test_discovery_files_link_the_public_agent_contracts(self) -> None:
+        for site, host in SITES.items():
+            discovery = (HANDOFF / site / "llms.txt").read_text(encoding="utf-8")
+            for path in (
+                "/openapi.json",
+                "/mcp",
+                "/api/v1/vehicles",
+                "/api/v1/service-information",
+                "/api/v1/parts-information",
+                "/service-scheduler",
+            ):
+                self.assertIn(f"https://{host}{path}", discovery)
+
 
 if __name__ == "__main__":
     unittest.main()

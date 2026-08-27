@@ -15,59 +15,60 @@ if str(REPOSITORY) not in sys.path:
     sys.path.insert(0, str(REPOSITORY))
 
 import agent_access  # noqa: E402
-from server import SITES  # noqa: E402
 
 
 REQUIREMENTS = ("none", "configured", "verified", "active")
+STABLE_HANDOFF_URLS = [
+    "https://ai.motorinnautogroup.com/service-scheduler",
+    "https://ai.motorinnofcarroll.com/service-scheduler",
+    "https://ai.motorinntoyotaofcarroll.com/service-scheduler",
+]
 
 
-def _safe_site_status(site: object) -> tuple[dict[str, object], bool]:
-    stable_handoff_url = f"https://{site.ai_host}/service-scheduler"
-    evaluation = agent_access.xtime_configuration_preflight(site, os.environ)
+def _safe_location_status() -> tuple[dict[str, object], bool]:
+    evaluation = agent_access.xtime_configuration_preflight(os.environ)
     status = {
-        "site": site.key,
+        "location": "carroll",
+        "name": "Carroll",
         "provider": evaluation["targetProvider"],
         "configured": evaluation["configured"],
-        "rooftopBindingVerified": evaluation["rooftopBindingVerified"],
+        "locationBindingVerified": evaluation["locationBindingVerified"],
         "active": evaluation["active"],
         "status": evaluation["status"],
-        "stableHandoffUrl": stable_handoff_url,
+        "stableHandoffUrls": STABLE_HANDOFF_URLS,
     }
     if "error" in evaluation:
         status["error"] = evaluation["error"]
     return status, bool(evaluation["configurationValid"])
 
 
-def _requirement_satisfied(requirement: str, sites: list[dict[str, object]]) -> bool:
+def _requirement_satisfied(requirement: str, locations: list[dict[str, object]]) -> bool:
     if requirement == "none":
         return True
     if requirement == "configured":
-        return all(site["configured"] is True for site in sites)
+        return all(location["configured"] is True for location in locations)
     if requirement == "verified":
         return all(
-            site["configured"] is True and site["rooftopBindingVerified"] is True
-            for site in sites
+            location["configured"] is True
+            and location["locationBindingVerified"] is True
+            for location in locations
         )
-    return all(site["active"] is True for site in sites)
+    return all(location["active"] is True for location in locations)
 
 
 def preflight(requirement: str) -> tuple[dict[str, object], int]:
-    statuses: list[dict[str, object]] = []
-    configuration_valid = True
-    for site in SITES.values():
-        status, valid = _safe_site_status(site)
-        statuses.append(status)
-        configuration_valid = configuration_valid and valid
+    status, configuration_valid = _safe_location_status()
+    locations = [status]
 
     requirement_satisfied = (
-        configuration_valid and _requirement_satisfied(requirement, statuses)
+        configuration_valid and _requirement_satisfied(requirement, locations)
     )
     payload = {
         "schema": "motorinn.xtimePreflight.v1",
         "requirement": requirement,
         "configurationValid": configuration_valid,
         "requirementSatisfied": requirement_satisfied,
-        "sites": statuses,
+        "locations": locations,
     }
     return payload, 0 if requirement_satisfied else 2
 

@@ -133,11 +133,11 @@ paths:
   /service-scheduler:
     get:
       operationId: followServiceSchedulerHandoff
-      summary: Follow the stable rooftop-specific service scheduling handoff
+      summary: Follow the stable brand-specific Carroll service scheduling handoff
       description: >-
         Redirects to the current authoritative customer journey. Before Xtime
         activation this remains the existing scheduler; after a valid URL,
-        exact rooftop verification, and explicit activation it becomes the
+        exact Carroll location verification, and explicit activation it becomes the
         approved Xtime journey. This operation does not create or confirm an
         appointment.
       tags: [Service]
@@ -190,6 +190,16 @@ paths:
                       name: Motor Inn of Carroll
                       host: ai.motorinnofcarroll.com
                       canonicalUrl: https://www.motorinnofcarroll.com
+                    serviceLocation:
+                      key: carroll
+                      name: Carroll
+                      address:
+                        streetAddress: 1526 Le Clark Road
+                        addressLocality: Carroll
+                        addressRegion: IA
+                        postalCode: "51401"
+                        addressCountry: US
+                      timeZone: America/Chicago
                     domain: service
                     capabilityState: external_handoff
                     actionUrl: https://www.motorinnofcarroll.com/serviceappmt.aspx
@@ -206,9 +216,10 @@ paths:
                     notice: Complete scheduling in the linked GM customer journey.
                     providerTransition:
                       targetProvider: Xtime Schedule by Cox Automotive
+                      locationKey: carroll
                       status: planned
                       configured: false
-                      rooftopBindingVerified: false
+                      locationBindingVerified: false
                       active: false
                 toyotaRequestOnly:
                   value:
@@ -218,6 +229,16 @@ paths:
                       name: Motor Inn Toyota Of Carroll
                       host: ai.motorinntoyotaofcarroll.com
                       canonicalUrl: https://www.motorinntoyotaofcarroll.com
+                    serviceLocation:
+                      key: carroll
+                      name: Carroll
+                      address:
+                        streetAddress: 1526 Le Clark Road
+                        addressLocality: Carroll
+                        addressRegion: IA
+                        postalCode: "51401"
+                        addressCountry: US
+                      timeZone: America/Chicago
                     domain: service
                     capabilityState: requested_only
                     actionUrl: https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx
@@ -234,9 +255,10 @@ paths:
                     notice: The linked form requests staff follow-up and is not a confirmed appointment.
                     providerTransition:
                       targetProvider: Xtime Schedule by Cox Automotive
+                      locationKey: carroll
                       status: planned
                       configured: false
-                      rooftopBindingVerified: false
+                      locationBindingVerified: false
                       active: false
         "500":
           $ref: "#/components/responses/InternalError"
@@ -637,6 +659,8 @@ components:
           const: motorinn.capabilityInformation.v1
         site:
           $ref: "#/components/schemas/SiteIdentity"
+        serviceLocation:
+          $ref: "#/components/schemas/ServiceLocation"
         domain:
           type: string
           enum: [service, parts]
@@ -663,21 +687,61 @@ components:
       allOf:
         - $ref: "#/components/schemas/CapabilityInformationResponse"
         - type: object
-          required: [stableHandoffUrl, providerTransition]
+          required: [serviceLocation, stableHandoffUrl, providerTransition]
+          properties:
+            serviceLocation:
+              $ref: "#/components/schemas/ServiceLocation"
+    ServiceLocation:
+      type: object
+      additionalProperties: false
+      required: [key, name, address, timeZone]
+      properties:
+        key:
+          type: string
+          const: carroll
+        name:
+          type: string
+          const: Carroll
+        address:
+          type: object
+          additionalProperties: false
+          required: [streetAddress, addressLocality, addressRegion, postalCode, addressCountry]
+          properties:
+            streetAddress:
+              type: string
+              const: 1526 Le Clark Road
+            addressLocality:
+              type: string
+              const: Carroll
+            addressRegion:
+              type: string
+              const: IA
+            postalCode:
+              type: string
+              const: "51401"
+            addressCountry:
+              type: string
+              const: US
+        timeZone:
+          type: string
+          const: America/Chicago
     ProviderTransition:
       type: object
       additionalProperties: false
-      required: [targetProvider, status, configured, rooftopBindingVerified, active]
+      required: [targetProvider, locationKey, status, configured, locationBindingVerified, active]
       properties:
         targetProvider:
           type: string
           const: Xtime Schedule by Cox Automotive
+        locationKey:
+          type: string
+          const: carroll
         status:
           type: string
           enum: [planned, active]
         configured:
           type: boolean
-        rooftopBindingVerified:
+        locationBindingVerified:
           type: boolean
         active:
           type: boolean

@@ -16,12 +16,19 @@ from urllib.parse import parse_qs, urlsplit, urlunsplit
 
 API_SCHEMA_VERSION = "v1"
 XTIME_PROVIDER = "Xtime Schedule by Cox Automotive"
-XTIME_CONSUMER_HOSTS = frozenset({"consumer.xtime.com"})
-SITE_ENV_SUFFIX = {
-    "motorinnautogroup": "GROUP",
-    "motorinnchevy": "CHEVY",
-    "motorinntoyota": "TOYOTA",
+CARROLL_SERVICE_LOCATION = {
+    "key": "carroll",
+    "name": "Carroll",
+    "address": {
+        "streetAddress": "1526 Le Clark Road",
+        "addressLocality": "Carroll",
+        "addressRegion": "IA",
+        "postalCode": "51401",
+        "addressCountry": "US",
+    },
+    "timeZone": "America/Chicago",
 }
+XTIME_CONSUMER_HOSTS = frozenset({"consumer.xtime.com"})
 OWNED_PUBLIC_HOSTS = frozenset({
     "www.motorinnautogroup.com",
     "www.motorinnofcarroll.com",
@@ -468,18 +475,17 @@ def _valid_xtime_url(value: str | None) -> bool:
     return len(webkeys) == 1 and bool(webkeys[0].strip())
 
 
-def xtime_configuration_preflight(site: Any, environ: Mapping[str, str]) -> dict[str, Any]:
+def xtime_configuration_preflight(environ: Mapping[str, str]) -> dict[str, Any]:
     """Return safe, independently evaluated Xtime activation gate state."""
-    suffix = SITE_ENV_SUFFIX[site.key]
-    configured_url = environ.get(f"MOTORINN_XTIME_{suffix}_URL")
-    active_raw = environ.get(f"MOTORINN_XTIME_{suffix}_ACTIVE", "false")
-    verified_rooftop = environ.get(f"MOTORINN_XTIME_{suffix}_VERIFIED_ROOFTOP", "")
+    configured_url = environ.get("MOTORINN_XTIME_CARROLL_URL")
+    active_raw = environ.get("MOTORINN_XTIME_CARROLL_ACTIVE", "false")
+    verified_location = environ.get("MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION", "")
     active_flag_valid = active_raw.casefold() in {"true", "false"}
     active = active_flag_valid and active_raw.casefold() == "true"
     configured = _valid_xtime_url(configured_url)
     configured_value_present = bool(configured_url)
-    verified = verified_rooftop == site.key
-    verified_value_present = bool(verified_rooftop)
+    verified = verified_location == CARROLL_SERVICE_LOCATION["key"]
+    verified_value_present = bool(verified_location)
 
     error: str | None = None
     if not active_flag_valid:
@@ -489,13 +495,14 @@ def xtime_configuration_preflight(site: Any, environ: Mapping[str, str]) -> dict
     elif active and (not configured or not verified):
         error = "invalid_active_configuration"
     elif verified_value_present and not verified:
-        error = "invalid_rooftop_binding"
+        error = "invalid_location_binding"
 
     status = {
         "targetProvider": XTIME_PROVIDER,
+        "locationKey": CARROLL_SERVICE_LOCATION["key"],
         "status": "invalid" if error else ("active" if active else "planned"),
         "configured": configured,
-        "rooftopBindingVerified": verified,
+        "locationBindingVerified": verified,
         "active": active,
         "configurationValid": error is None,
     }
@@ -505,20 +512,20 @@ def xtime_configuration_preflight(site: Any, environ: Mapping[str, str]) -> dict
 
 
 def _xtime_transition(site: Any, environ: Mapping[str, str]) -> tuple[dict[str, Any], str | None]:
-    suffix = SITE_ENV_SUFFIX[site.key]
-    configured_url = environ.get(f"MOTORINN_XTIME_{suffix}_URL")
-    evaluation = xtime_configuration_preflight(site, environ)
+    configured_url = environ.get("MOTORINN_XTIME_CARROLL_URL")
+    evaluation = xtime_configuration_preflight(environ)
     if evaluation.get("error") == "invalid_activation_flag" or (
         evaluation["active"] and not evaluation["configurationValid"]
     ):
         raise ConfigurationUnavailable(
-            "active Xtime configuration requires a valid consumer URL and an explicitly verified rooftop binding"
+            "active Xtime configuration requires a valid consumer URL and the explicitly verified Carroll location"
         )
     transition = {
         "targetProvider": evaluation["targetProvider"],
+        "locationKey": evaluation["locationKey"],
         "status": "active" if evaluation["active"] else "planned",
         "configured": evaluation["configured"],
-        "rooftopBindingVerified": evaluation["rooftopBindingVerified"],
+        "locationBindingVerified": evaluation["locationBindingVerified"],
         "active": evaluation["active"],
     }
     return transition, configured_url if evaluation["active"] else None
@@ -550,6 +557,7 @@ def service_information(site: Any, environ: Mapping[str, str] | None = None) -> 
     return {
         "schema": "motorinn.capabilityInformation.v1",
         "site": site_identity(site),
+        "serviceLocation": CARROLL_SERVICE_LOCATION,
         "domain": "service",
         "capabilityState": capability_state,
         "actionUrl": action_url,
