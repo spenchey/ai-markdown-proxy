@@ -16,6 +16,7 @@ Last verified: 2026-08-02T13:30:00-05:00
 
 - [Service](https://www.motorinnautogroup.com/service-locations.html)
 - [Service Appointment](https://www.motorinnautogroup.com/serviceappmt.aspx)
+- [Parts Request](https://www.motorinnautogroup.com/orderparts.aspx)
 - [Specials](https://www.motorinnautogroup.com/specials.aspx)
 - [Hours](https://www.motorinnautogroup.com/hours.aspx)
 - [Contact](https://www.motorinnautogroup.com/contactus.aspx)

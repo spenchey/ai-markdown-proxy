@@ -20,6 +20,7 @@ Last verified: 2026-08-02T13:30:00-05:00
 - [Service](https://www.motorinntoyotaofcarroll.com/service-center.html)
 - [Service Appointment](https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx)
 - [Parts](https://www.motorinntoyotaofcarroll.com/parts-department/)
+- [Parts Request](https://www.motorinntoyotaofcarroll.com/orderparts.aspx)
 - [Specials](https://www.motorinntoyotaofcarroll.com/newspecials.html)
 - [Hours](https://www.motorinntoyotaofcarroll.com/hours.aspx)
 - [Contact](https://www.motorinntoyotaofcarroll.com/contactus.aspx)

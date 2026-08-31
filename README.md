@@ -121,6 +121,20 @@ The command exits `0` only when the Carroll location satisfies the requested sta
 otherwise it exits `2` with safe JSON status. It never tests or claims that an
 appointment can be written.
 
+### Cross-agent read conformance
+
+Run the non-mutating live canary to compare public AI pages, OpenAPI reads, and
+MCP structured results across all three brand hosts:
+
+```bash
+.venv/bin/python tools/read_conformance.py
+```
+
+The report distinguishes a true interface mismatch (`fail`) from a consistent
+fail-closed upstream outage (`degraded`). It can also compare deliberately
+minimal, secret-free evidence captured from supported ChatGPT, Claude, Gemini,
+Perplexity, and browser clients. See `docs/read-conformance-harness.md`.
+
 ### `GET /<path>` with `Accept: text/markdown`
 Fetches the equivalent canonical DealerOn page and returns `text/markdown`. Normal browser requests redirect to the canonical human page.
 

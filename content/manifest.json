@@ -22,7 +22,7 @@
     },
     {
       "file": "service.md",
-      "sha256": "beca75ce42e7f06cdf73c4e9978cc7b4c88a12919eb6dcfb389159f7acc95bf6",
+      "sha256": "03ce8131c3ee39af936670a29087a779711b17d4228e5e8bb3fa8811994ee3f6",
       "site": "motorinnautogroup"
     },
     {
@@ -92,7 +92,7 @@
     },
     {
       "file": "service.md",
-      "sha256": "6104eed2ff967692ce8f1c25e61a473b187fad403de9fe2722f7a6024fe78cf6",
+      "sha256": "7ad2ea93c60860a6c9177b5d3fa309429d15699d7696dd5a824a3a0ba68473b6",
       "site": "motorinntoyotaofcarroll"
     },
     {
@@ -106,7 +106,7 @@
       "site": "motorinntoyotaofcarroll"
     }
   ],
-  "generatedAt": "2026-08-13T18:12:50Z",
+  "generatedAt": "2026-08-31T14:10:41Z",
   "schema": "motorinn.aiReadableContentManifest.v1",
-  "sourcePackage": "dealeron-ai-readability-2026-08-02"
+  "sourcePackage": "dealeron-ai-readability-2026-08-02+agent-access-v1"
 }
