@@ -1,12 +1,12 @@
 # Graph Report - ai-markdown-proxy  (2026-08-31)
 
 ## Corpus Check
-- 43 files · ~28,085 words
+- 43 files · ~28,145 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 459 nodes · 830 edges · 49 communities (28 shown, 21 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 12 edges (avg confidence: 0.7)
+- 460 nodes · 836 edges · 49 communities (28 shown, 21 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.67)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -84,9 +84,9 @@
   tests/test_read_conformance.py → read_conformance.py
 - `ReadConformanceTests` --uses--> `HttpResult`  [INFERRED]
   tests/test_read_conformance.py → read_conformance.py
-- `FixtureTransport` --uses--> `ReadConformanceHarness`  [INFERRED]
+- `FixtureTransport` --uses--> `RequestsTransport`  [INFERRED]
   tests/test_read_conformance.py → read_conformance.py
-- `ReadConformanceTests` --uses--> `ReadConformanceHarness`  [INFERRED]
+- `ReadConformanceTests` --uses--> `RequestsTransport`  [INFERRED]
   tests/test_read_conformance.py → read_conformance.py
 
 ## Import Cycles

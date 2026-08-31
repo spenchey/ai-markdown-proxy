@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import server
 
@@ -123,6 +123,34 @@ class ProxyTests(unittest.TestCase):
             response = self.client.get("/new-inventory.md", headers={"Host": "ai.motorinnautogroup.com"})
         self.assertEqual(response.status_code, 503)
         self.assertIn("catalog stale", response.get_data(as_text=True))
+
+    def test_catalog_freshness_accounts_for_the_declared_mon_sat_schedule(self) -> None:
+        saturday_publish = "Sat, 29 Aug 2026 21:02:05 GMT"
+        monday_morning = datetime(2026, 8, 31, 14, 0, tzinfo=timezone.utc)
+        response = MagicMock()
+        response.headers = {"Last-Modified": saturday_publish}
+        response.text = "id,link\nT1,https://example.com/T1\n"
+
+        with patch("server.utc_now", return_value=monday_morning), patch(
+            "server.requests.get", return_value=response
+        ):
+            rows, modified = server.load_catalog()
+
+        self.assertEqual(rows[0]["id"], "T1")
+        self.assertEqual(modified.isoformat(), "2026-08-29T21:02:05+00:00")
+        response.raise_for_status.assert_called_once()
+
+    def test_catalog_freshness_does_not_extend_the_cap_outside_monday(self) -> None:
+        sunday_publish = "Sun, 30 Aug 2026 12:00:00 GMT"
+        tuesday_morning = datetime(2026, 9, 1, 14, 0, tzinfo=timezone.utc)
+        response = MagicMock()
+        response.headers = {"Last-Modified": sunday_publish}
+        response.text = "id,link\nT1,https://example.com/T1\n"
+
+        with patch("server.utc_now", return_value=tuesday_morning), patch(
+            "server.requests.get", return_value=response
+        ), self.assertRaisesRegex(server.SourceUnavailable, "public catalog stale"):
+            server.load_catalog()
 
     def test_search_crawlers_allowed_and_training_crawlers_blocked(self) -> None:
         response = self.client.get("/robots.txt", headers={"Host": "ai.motorinnautogroup.com"})

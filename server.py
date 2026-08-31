@@ -24,6 +24,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
+from zoneinfo import ZoneInfo
 
 import boto3
 import requests
@@ -42,6 +43,10 @@ OPENAPI_PATH = Path(__file__).resolve().parent / "openapi" / "agent-access-v1.ya
 CACHE_TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", "3600"))
 DYNAMIC_CACHE_TTL_SECONDS = int(os.environ.get("DYNAMIC_CACHE_TTL_SECONDS", "300"))
 MAX_SOURCE_AGE_SECONDS = int(os.environ.get("MAX_SOURCE_AGE_SECONDS", str(36 * 3600)))
+CATALOG_MONDAY_MAX_SOURCE_AGE_SECONDS = int(
+    os.environ.get("CATALOG_MONDAY_MAX_SOURCE_AGE_SECONDS", str(54 * 3600))
+)
+CATALOG_SCHEDULE_TIME_ZONE = ZoneInfo("America/Chicago")
 
 
 def validated_documentary_fee(value: Any) -> float:
@@ -219,6 +224,22 @@ def iso_timestamp(value: datetime) -> str:
 
 def source_age_seconds(value: datetime) -> float:
     return max(0.0, (utc_now() - value.astimezone(timezone.utc)).total_seconds())
+
+
+def catalog_source_age_limit_seconds(now: datetime) -> int:
+    """Allow the declared Mon-Sat feed cadence without hiding a missed run.
+
+    The catalog is published at 4 PM America/Chicago Monday through Saturday.
+    Monday is the only day that can legitimately see more than 36 hours of age,
+    because there is no Sunday customer-marketing run.  A 54-hour Monday cap
+    covers that expected interval but still fails Monday night if the scheduled
+    Monday publication never occurs. DealerVault keeps the normal 36-hour cap.
+    """
+
+    local_now = now.astimezone(CATALOG_SCHEDULE_TIME_ZONE)
+    if local_now.weekday() == 0:
+        return max(MAX_SOURCE_AGE_SECONDS, CATALOG_MONDAY_MAX_SOURCE_AGE_SECONDS)
+    return MAX_SOURCE_AGE_SECONDS
 
 
 def classify_bot(user_agent: str) -> str:
@@ -433,7 +454,7 @@ def load_catalog() -> tuple[list[dict[str, str]], datetime]:
     response.raise_for_status()
     modified_text = response.headers.get("Last-Modified")
     modified = parsedate_to_datetime(modified_text) if modified_text else utc_now()
-    if source_age_seconds(modified) > MAX_SOURCE_AGE_SECONDS:
+    if source_age_seconds(modified) > catalog_source_age_limit_seconds(utc_now()):
         raise SourceUnavailable(f"public catalog stale: last modified {iso_timestamp(modified)}")
     rows = list(csv.DictReader(io.StringIO(response.text)))
     if not rows:

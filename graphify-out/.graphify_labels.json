@@ -44,8 +44,5 @@
   "42": "datetime",
   "43": "RuntimeError",
   "44": "Any",
-  "45": "Path",
-  "46": "Any",
-  "47": "datetime",
-  "48": "RuntimeError"
+  "45": "Path"
 }
