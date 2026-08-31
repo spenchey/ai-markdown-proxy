@@ -83,6 +83,11 @@ remain isolated.
 ### `GET /new-inventory.md` and `GET /used-inventory.md`
 Matches the latest DealerVault/Athena inventory export against public DealerOn VDPs and photos. A missing or stale source returns `503`; it never publishes guessed facts.
 
+The private DealerVault source keeps a 36-hour freshness limit. The public
+catalog is scheduled at 4 PM America/Chicago Monday through Saturday, so its
+limit is schedule-aware only on Monday: up to 54 hours covers the declared
+Sunday gap, while a missed Monday publication still fails closed Monday night.
+
 ### `GET /offers.md`
 Converts the site's current DealerOn offer page and links back to the controlling source and disclosures.
 

@@ -1,16 +1,16 @@
 # Graph Report - ai-markdown-proxy  (2026-08-31)
 
 ## Corpus Check
-- 43 files · ~28,145 words
+- 43 files · ~28,385 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 460 nodes · 836 edges · 49 communities (28 shown, 21 thin omitted)
+- 464 nodes · 876 edges · 46 communities (28 shown, 18 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.67)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `89f2937c`
+- Built from commit: `017fa981`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -61,9 +61,6 @@
 - RuntimeError
 - Any
 - Path
-- Any
-- datetime
-- RuntimeError
 
 ## God Nodes (most connected - your core abstractions)
 1. `AgentAccessTests` - 26 edges
@@ -72,10 +69,10 @@
 4. `resolve_site()` - 20 edges
 5. `HttpResult` - 14 edges
 6. `serve_agent_query()` - 14 edges
-7. `vehicle_search()` - 13 edges
-8. `What It Serves` - 13 edges
-9. `api_error()` - 12 edges
-10. `ProxyTests` - 12 edges
+7. `ProxyTests` - 14 edges
+8. `vehicle_search()` - 13 edges
+9. `What It Serves` - 13 edges
+10. `api_error()` - 12 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `_post_slack()` --indirect_call--> `response()`  [INFERRED]
@@ -92,11 +89,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (49 total, 21 thin omitted)
+## Communities (46 total, 18 thin omitted)
 
 ### Community 0 - "server.py"
 Cohesion: 0.07
-Nodes (96): Exception, Response, agent_query_error(), agent_query_health(), api_error(), api_inventory_detail(), api_inventory_search(), api_response() (+88 more)
+Nodes (101): Exception, Response, agent_query_error(), agent_query_health(), api_error(), api_inventory_detail(), api_inventory_search(), api_response() (+93 more)
 
 ### Community 1 - "agent_access.py"
 Cohesion: 0.14
@@ -209,22 +206,22 @@ Nodes (29): Protocol, _content_type(), _error_code(), exit_code(), _finding(), H
 ## Knowledge Gaps
 - **112 isolated node(s):** `files`, `generatedAt`, `schema`, `sourcePackage`, `deploy-monitoring.sh script` (+107 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `InvalidRequest` connect `agent_access.py` to `parse_agent_query`?**
-  _High betweenness centrality (0.057) - this node is a cross-community bridge._
-- **Why does `parse_agent_query()` connect `parse_agent_query` to `server.py`?**
-  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+  _High betweenness centrality (0.076) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `ReadConformanceHarness` (e.g. with `FixtureTransport` and `ReadConformanceTests`) actually correct?**
   _`ReadConformanceHarness` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `files`, `generatedAt`, `schema` to the rest of the system?**
   _112 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `server.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.06637806637806638 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06646751306945482 - nodes in this community are weakly interconnected._
 - **Should `agent_access.py` be split into smaller, more focused modules?**
   _Cohesion score 0.14264264264264265 - nodes in this community are weakly interconnected._
 - **Should `health_monitor.py` be split into smaller, more focused modules?**
   _Cohesion score 0.08831908831908832 - nodes in this community are weakly interconnected._
+- **Should `What It Serves` be split into smaller, more focused modules?**
+  _Cohesion score 0.10526315789473684 - nodes in this community are weakly interconnected._
