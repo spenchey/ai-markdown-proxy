@@ -98,6 +98,7 @@ class MuseContextProfileTests(unittest.TestCase):
         self.assertTrue(all(tool["outputSchema"]["type"] == "object" for tool in customer))
 
     def test_customer_profile_supports_standard_initialize_list_and_inventory_call(self) -> None:
+        supported_versions = ("2025-11-25", "2025-06-18")
         initialize_responses = {
             version: self.mcp(
                 "/mcp/customer",
@@ -105,7 +106,7 @@ class MuseContextProfileTests(unittest.TestCase):
                 {"protocolVersion": version, "capabilities": {}, "clientInfo": {"name": "fixture-client", "version": "1"}},
                 request_id=index,
             )
-            for index, version in enumerate(("2025-11-25", "2025-06-18", "2025-03-26"), start=10)
+            for index, version in enumerate(supported_versions, start=10)
         }
         listed = self.mcp("/mcp/customer", "tools/list", {}).get_json()["result"]["tools"]
         calls = [
@@ -123,6 +124,13 @@ class MuseContextProfileTests(unittest.TestCase):
             {version: response.get_json()["result"]["protocolVersion"] for version, response in initialize_responses.items()},
             {version: version for version in initialize_responses},
         )
+        unsupported = self.mcp(
+            "/mcp/customer",
+            "initialize",
+            {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "old-client", "version": "1"}},
+            request_id=20,
+        )
+        self.assertEqual(unsupported.get_json()["result"]["protocolVersion"], "2025-11-25")
         self.assertTrue(all("tools" in response.get_json()["result"]["capabilities"] for response in initialize_responses.values()))
         self.assertTrue(all(tool["annotations"]["readOnlyHint"] for tool in listed))
         self.assertEqual(inventory["structuredContent"]["schema"], "motorinn.vehicleSearch.v1")

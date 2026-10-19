@@ -26,7 +26,7 @@ These tools do not create leads, retrieve customer records, accept deposits, res
 
 ## Protocol notes
 
-The endpoint uses MCP over Streamable HTTP with JSON-RPC POST requests and JSON responses. It supports the MCP protocol versions `2025-11-25`, `2025-06-18`, and `2025-03-26`; GET returns `405 Method Not Allowed` because the server does not provide an unsolicited server-sent-events stream. That GET behavior is allowed by the `2025-11-25` Streamable HTTP specification. An MCP-compatible client should discover tools from the endpoint rather than assuming a Muse-specific tool manifest.
+The endpoint uses MCP over Streamable HTTP with JSON-RPC POST requests and JSON responses. It negotiates MCP protocol versions `2025-11-25` and `2025-06-18`. If a client requests another version, the server selects `2025-11-25`; continue only if the client supports that version. GET returns `405 Method Not Allowed` because the server does not provide an unsolicited server-sent-events stream. That GET behavior is allowed by the `2025-11-25` Streamable HTTP specification. An MCP-compatible client should discover tools from the endpoint rather than assuming a Muse-specific tool manifest.
 
 Requests from browser-based clients must use an allowed `Origin`; Motor Inn validates supplied origins. A server-side MCP client usually omits `Origin`. Do not remove or spoof the header to work around a rejection.
 

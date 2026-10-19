@@ -1445,7 +1445,7 @@ def serve_mcp_profile(profile: str) -> Response:
         return Response(status=202)
     if method == "initialize":
         requested_version = params.get("protocolVersion")
-        supported = {"2025-11-25", "2025-06-18", "2025-03-26"}
+        supported = {"2025-11-25", "2025-06-18"}
         client_info = params.get("clientInfo")
         if (
             not isinstance(requested_version, str)
