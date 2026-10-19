@@ -136,6 +136,7 @@ DISCOVERY_PATHS = (
     "/",
     "/llms.txt",
     "/llms-full.txt",
+    "/agent-connection.md",
     "/dealership.md",
     "/contact-hours.md",
     "/service.md",
@@ -151,6 +152,7 @@ DISCOVERY_PATHS = (
     "/api/v1/parts-information",
     "/service-scheduler",
     "/mcp",
+    "/mcp/customer",
 )
 AGENT_QUERY_EXAMPLES = (
     "/llms?query=service&limit=3",
@@ -436,7 +438,9 @@ def llms_content(site: Site, filename: str) -> str:
         f"- [JSON query example]({json_url})\n"
         f"- [OpenAPI 3.1 contract](https://{site.ai_host}/openapi.json)\n"
         f"- [Stable service scheduler handoff](https://{site.ai_host}/service-scheduler)\n"
-        f"- [Read-only MCP endpoint](https://{site.ai_host}/mcp)"
+        f"- [Customer agent connection guide](https://{site.ai_host}/agent-connection.md)\n"
+        f"- [Customer agent MCP endpoint](https://{site.ai_host}/mcp/customer)\n"
+        f"- [Existing read-only MCP endpoint](https://{site.ai_host}/mcp)"
     )
     return f"{body}\n\n{nudge}\n"
 
@@ -896,7 +900,7 @@ def sitemap_xml(site: Site) -> str:
     urls = "\n".join(
         f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
         for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
-        if path not in {"/mcp", "/service-scheduler"}
+        if path not in {"/mcp", "/mcp/customer", "/service-scheduler"}
     )
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}\n</urlset>\n'
 
@@ -1080,18 +1084,25 @@ def mcp_component_schema(name: str) -> dict[str, Any]:
             return [expand(item) for item in value]
         return value
 
-    return expand(schemas[name])
+    schema = expand(schemas[name])
+    # MCP Tool.outputSchema requires a top-level JSON Schema type. OpenAPI
+    # permits an allOf-only schema root, so make the object type explicit in
+    # the MCP projection without changing the source OpenAPI contract.
+    if "type" not in schema and "allOf" in schema:
+        schema = {"type": "object", **schema}
+    return schema
 
 
-@lru_cache(maxsize=1)
-def mcp_tools() -> list[dict[str, Any]]:
+@lru_cache(maxsize=3)
+def mcp_tools(profile: str = "default") -> list[dict[str, Any]]:
     read_annotations = {
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
     }
-    return [
+    inventory_annotations = {**read_annotations, "openWorldHint": True}
+    tools = [
         {
             "name": "search_vehicles",
             "title": "Search Motor Inn vehicles",
@@ -1111,7 +1122,7 @@ def mcp_tools() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
             "outputSchema": mcp_component_schema("VehicleSearchResponse"),
-            "annotations": read_annotations,
+            "annotations": inventory_annotations,
         },
         {
             "name": "get_vehicle",
@@ -1124,7 +1135,7 @@ def mcp_tools() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
             "outputSchema": mcp_component_schema("VehicleResponse"),
-            "annotations": read_annotations,
+            "annotations": inventory_annotations,
         },
         {
             "name": "list_locations",
@@ -1151,6 +1162,68 @@ def mcp_tools() -> list[dict[str, Any]]:
             "annotations": read_annotations,
         },
     ]
+    if profile == "default":
+        return tools
+    if profile not in {"context-only", "customer"}:
+        raise ValueError("unknown MCP profile")
+
+    context_tool = {
+        "name": "search_public_website",
+        "title": "Search public Motor Inn website information",
+        "description": "Search only validated static website pages for this brand. Inventory and offers are excluded.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "minLength": 1, "maxLength": QUERY_MAX_CHARS},
+                "limit": {"type": "integer", "minimum": 1, "maximum": QUERY_MAX_RESULTS, "default": QUERY_DEFAULT_RESULTS},
+            },
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "required": ["schema", "site", "resultCount", "noResults", "results"],
+            "properties": {
+                "schema": {"type": "string", "const": "motorinn.llmsQuery.v1"},
+                "site": {
+                    "type": "object",
+                    "required": ["key", "name", "host"],
+                    "properties": {
+                        "key": {"type": "string"},
+                        "name": {"type": "string"},
+                        "host": {"type": "string"},
+                    },
+                    "additionalProperties": False,
+                },
+                "resultCount": {"type": "integer", "minimum": 0},
+                "noResults": {"type": "boolean"},
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["id", "title", "snippet", "canonicalUrl", "sourceUrl", "sourceType", "freshness"],
+                        "properties": {
+                            "id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "snippet": {"type": "string"},
+                            "canonicalUrl": {"type": "string", "format": "uri"},
+                            "sourceUrl": {"type": "string", "format": "uri"},
+                            "sourceType": {"type": "string", "const": "static"},
+                            "freshness": {"type": ["string", "null"]},
+                        },
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "additionalProperties": False,
+        },
+        "annotations": read_annotations,
+    }
+    context_names = {"list_locations", "get_service_information", "get_parts_information"}
+    context_tools = [tool for tool in tools if tool["name"] in context_names] + [context_tool]
+    if profile == "context-only":
+        return context_tools
+    return tools + [context_tool]
 
 
 def mcp_success(request_id: Any, result: dict[str, Any]) -> Response:
@@ -1175,14 +1248,22 @@ def mcp_tool_result(payload: dict[str, Any], *, is_error: bool = False) -> dict[
     return result
 
 
-def mcp_call_tool(site: Site, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    definition = next((tool for tool in mcp_tools() if tool["name"] == name), None)
+def mcp_call_tool(site: Site, name: str, arguments: dict[str, Any], profile: str = "default") -> dict[str, Any]:
+    definition = next((tool for tool in mcp_tools(profile) if tool["name"] == name), None)
     if definition is None:
         raise KeyError(name)
     try:
         Draft202012Validator(definition["inputSchema"]).validate(arguments)
     except ValidationError as exc:
         raise agent_access.InvalidRequest(f"Invalid {name} arguments: {exc.message}") from exc
+    if name == "search_public_website":
+        try:
+            query = normalize_query(arguments["query"])
+            limit = query_limit(arguments.get("limit"))
+        except ValueError as exc:
+            raise agent_access.InvalidRequest(str(exc)) from exc
+        results = rank_query_documents(query, build_static_query_documents(site), limit)
+        return query_payload(site, results)
     if name == "search_vehicles":
         allowed = {"query", "condition", "make", "model", "minPrice", "maxPrice", "limit", "cursor"}
         if set(arguments) - allowed:
@@ -1332,8 +1413,7 @@ def serve_api_parts_information() -> Response:
         return api_error("internal_error", "The request could not be completed", 500)
 
 
-@app.route("/mcp", methods=["GET", "POST"])
-def serve_mcp() -> Response:
+def serve_mcp_profile(profile: str) -> Response:
     site = resolve_site()
     if not mcp_origin_allowed(site):
         return mcp_error(None, -32000, "Invalid Origin", status=403)
@@ -1387,7 +1467,7 @@ def serve_mcp() -> Response:
     if method == "ping":
         return mcp_success(request_id, {})
     if method == "tools/list":
-        return mcp_success(request_id, {"tools": mcp_tools()})
+        return mcp_success(request_id, {"tools": mcp_tools(profile)})
     if method != "tools/call":
         return mcp_error(request_id, -32601, "Method not found")
     name = params.get("name")
@@ -1397,7 +1477,7 @@ def serve_mcp() -> Response:
         return mcp_success(request_id, mcp_tool_result(error, is_error=True))
     arguments = raw_arguments
     try:
-        return mcp_success(request_id, mcp_tool_result(mcp_call_tool(site, str(name), arguments)))
+        return mcp_success(request_id, mcp_tool_result(mcp_call_tool(site, str(name), arguments, profile)))
     except KeyError:
         return mcp_error(request_id, -32602, "Unknown tool")
     except agent_access.InvalidRequest as exc:
@@ -1416,6 +1496,21 @@ def serve_mcp() -> Response:
         logger.error(json.dumps({"event": "mcp_tool_failure", "tool": name, "site": site.key, "error": str(exc)}))
         error = {"schema": "motorinn.error.v1", "error": {"code": "internal_error", "message": "The tool call could not be completed", "retryable": False}}
         return mcp_success(request_id, mcp_tool_result(error, is_error=True))
+
+
+@app.route("/mcp", methods=["GET", "POST"])
+def serve_mcp() -> Response:
+    return serve_mcp_profile("default")
+
+
+@app.route("/mcp/context", methods=["GET", "POST"])
+def serve_context_mcp() -> Response:
+    return serve_mcp_profile("context-only")
+
+
+@app.route("/mcp/customer", methods=["GET", "POST"])
+def serve_customer_mcp() -> Response:
+    return serve_mcp_profile("customer")
 
 
 @app.route("/__health")
@@ -1476,6 +1571,16 @@ def serve_sitemap() -> Response:
 @app.route("/llms-full.txt")
 def serve_llms() -> Response:
     return markdown_response(llms_content(resolve_site(), request.path.lstrip("/")))
+
+
+@app.route("/agent-connection.md")
+def serve_agent_connection_guide() -> Response:
+    try:
+        guide = (Path(__file__).parent / "docs" / "customer-agent-connection.md").read_text(encoding="utf-8")
+        return markdown_response(guide, max_age=3600)
+    except OSError as exc:
+        logger.error(json.dumps({"event": "agent_connection_guide_unavailable", "error": str(exc)}))
+        return api_error("source_unavailable", "The agent connection guide is temporarily unavailable", 503, retryable=True)
 
 
 @app.route("/llms")

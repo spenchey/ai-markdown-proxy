@@ -92,14 +92,18 @@ Sunday gap, while a missed Monday publication still fails closed Monday night.
 Converts the site's current DealerOn offer page and links back to the controlling source and disclosures.
 
 ### `GET /openapi.json` and `GET /api/v1/*`
-Serves a hostname-scoped OpenAPI 3.1.2 contract plus read-only vehicle search/detail, location, service-information, and parts-information routes. Inventory uses the same DealerVault/public-catalog match gate as the Markdown output and returns a fixed public projection with source timestamps. Invalid, stale, or cross-rooftop requests fail with typed JSON errors.
+Serves a hostname-scoped OpenAPI 3.1.2 contract plus read-only vehicle search/detail, location, service-information, and parts-information routes. Inventory uses the same DealerVault/public-catalog match gate as the Markdown output and returns a fixed public projection with price source-field provenance and explicit freshness timestamp bases. These timestamp bases distinguish the S3 object delivery time and HTTP Last-Modified/retrieval time from supplier update times. Invalid, stale, or cross-rooftop requests fail with typed JSON errors.
 
 ### `GET|POST /mcp`
-Implements a stateless MCP Streamable HTTP endpoint with five read-only tools: `search_vehicles`, `get_vehicle`, `list_locations`, `get_service_information`, and `get_parts_information`. `GET` returns 405 because the server does not offer an unsolicited SSE stream. POST requests validate any supplied `Origin`, and tool results include both structured content and a JSON text block.
+Implements the existing stateless MCP Streamable HTTP endpoint with five read-only tools: `search_vehicles`, `get_vehicle`, `list_locations`, `get_service_information`, and `get_parts_information`. `GET` returns 405 because the server does not offer an unsolicited SSE stream. POST requests validate any supplied `Origin`, and tool results include both structured content and a JSON text block. `/mcp/context` offers only location, service, parts, and `search_public_website`; `/mcp/customer` combines that static website search with the existing five public tools for customers' MCP-compatible agents. Static website search excludes dynamic inventory and offers. Both profiles are separate from the unchanged default `/mcp` tool list.
+
+The proposed Muse contract mapper remains hard-disabled in code because the current source semantics cannot substantiate all of its fields. Customer agents connect to the existing public projection through `/mcp/customer`; this does not relabel delivery timestamps as supplier update times or infer conditional-price eligibility. The connection guide documents the current source limitations and read-only scope: [customer agent connection](docs/customer-agent-connection.md).
 
 ### Staged Xtime Schedule handoff
 
 Motor Inn plans to move service scheduling to Xtime Schedule by Cox Automotive. Motor Inn has one service location in Carroll, presented through three branded website entry points. The public mirror can advertise and activate one validated Carroll Xtime consumer URL without adding appointment writes:
+
+For agent access, service support is links-only: `get_service_information` returns the current public journey and `/service-scheduler` redirects to that journey. It does not request, create, hold, confirm, reschedule, or cancel an appointment. Direct service booking is deferred and is not an inventory-release dependency. See [the Muse integration assessment](docs/muse-integration.md) for the existing contract mapping and remaining inventory compatibility work.
 
 Each AI host now exposes a permanent `GET /service-scheduler` handoff. Before
 cutover it redirects to that brand's current scheduling journey; after a

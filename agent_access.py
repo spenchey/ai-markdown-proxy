@@ -61,6 +61,11 @@ def source_freshness(catalog_modified: datetime, inventory_modified: datetime) -
     return {
         "dealerVaultUpdatedAt": iso_timestamp(inventory_modified),
         "publicCatalogUpdatedAt": iso_timestamp(catalog_modified),
+        # These are the timestamps used by the existing fail-closed age gates.
+        # They are not both supplier source-update timestamps: DealerVault is
+        # the S3 object delivery time and the catalog may fall back to fetch time.
+        "dealerVaultTimestampBasis": "s3_object_last_modified",
+        "publicCatalogTimestampBasis": "http_last_modified_or_retrieval_time",
     }
 
 
@@ -116,6 +121,10 @@ def _condition(value: Any) -> str | None:
 
 
 def _base_price(source: Mapping[str, Any]) -> Decimal | None:
+    return _base_price_with_source(source)[0]
+
+
+def _base_price_with_source(source: Mapping[str, Any]) -> tuple[Decimal | None, str | None]:
     for key in ("internet_price", "list_price", "msrp"):
         raw = source.get(key)
         if raw not in (None, ""):
@@ -124,8 +133,8 @@ def _base_price(source: Mapping[str, Any]) -> Decimal | None:
             except (InvalidOperation, ValueError):
                 continue
             if value > 0:
-                return value
-    return None
+                return value, key
+    return None, None
 
 
 def _canonical_catalog_url(value: Any) -> str:
@@ -198,7 +207,7 @@ def _vehicle_projection(
     documentary_fee: Decimal,
 ) -> dict[str, Any]:
     source = row.get("dealerVault") if isinstance(row.get("dealerVault"), Mapping) else {}
-    base_price = _base_price(source)
+    base_price, price_source_field = _base_price_with_source(source)
     price = None
     if base_price is not None:
         price = {
@@ -206,6 +215,9 @@ def _vehicle_projection(
             "currency": "USD",
             "includesDocumentaryFee": True,
             "documentaryFeeAmount": f"{documentary_fee:.2f}",
+            # This identifies the winning upstream field; it does not certify
+            # cash-price or conditional-price semantics for another API.
+            "sourceField": price_source_field,
         }
     year_text = _text(row.get("vehicle_year"))
     return {

@@ -144,11 +144,17 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload["schema"], "motorinn.vehicleSearch.v1")
         self.assertEqual(payload["resultCount"], 1)
-        self.assertEqual(payload["sourceFreshness"], {"dealerVaultUpdatedAt": "2026-08-27T15:30:00Z", "publicCatalogUpdatedAt": "2026-08-27T15:30:00Z"})
+        self.assertEqual(payload["sourceFreshness"], {
+            "dealerVaultUpdatedAt": "2026-08-27T15:30:00Z",
+            "publicCatalogUpdatedAt": "2026-08-27T15:30:00Z",
+            "dealerVaultTimestampBasis": "s3_object_last_modified",
+            "publicCatalogTimestampBasis": "http_last_modified_or_retrieval_time",
+        })
         vehicle = payload["vehicles"][0]
         self.assertEqual(vehicle["vin"], TOYOTA_VIN)
         self.assertEqual(vehicle["advertisedPrice"]["amount"], "50180.00")
         self.assertTrue(vehicle["advertisedPrice"]["includesDocumentaryFee"])
+        self.assertEqual(vehicle["advertisedPrice"]["sourceField"], "list_price")
         self.assertEqual(set(vehicle), {
             "id", "vin", "stockNumber", "year", "make", "model", "trim", "condition",
             "advertisedPrice", "availability", "site", "canonicalUrl", "imageUrl", "sourceFreshness",
@@ -156,6 +162,18 @@ class AgentAccessTests(unittest.TestCase):
         self.assertNotIn("cost", json.dumps(payload))
         self.assertNotIn("private@example.com", json.dumps(payload))
         self.assertNotIn("utm_source", json.dumps(payload))
+
+    def test_price_provenance_tracks_the_exact_winning_source_field(self) -> None:
+        catalog, inventory = self.inventory_sources()
+        with catalog, inventory:
+            chevy = self.client.get("/api/v1/vehicles?condition=new", headers={"Host": "ai.motorinnofcarroll.com"})
+            toyota = self.client.get("/api/v1/vehicles?condition=new", headers={"Host": "ai.motorinntoyotaofcarroll.com"})
+        chevy_price = chevy.get_json()["vehicles"][0]["advertisedPrice"]
+        toyota_price = toyota.get_json()["vehicles"][0]["advertisedPrice"]
+        self.assertEqual(chevy_price["sourceField"], "internet_price")
+        self.assertEqual(toyota_price["sourceField"], "list_price")
+        self.assertEqual(chevy_price["amount"], "25180.00")
+        self.assertEqual(toyota_price["amount"], "50180.00")
 
     def test_malformed_catalog_rows_do_not_escape_the_public_schema(self) -> None:
         malformed = {
@@ -375,6 +393,39 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(parts["capabilityState"], "requested_only")
         self.assertFalse(parts["availableOperations"]["confirm"])
         self.assertIn("not a stock check", parts["notice"])
+
+    def test_mcp_service_capability_is_links_only(self) -> None:
+        headers = {"Host": "ai.motorinntoyotaofcarroll.com", "MCP-Protocol-Version": "2025-11-25"}
+        with patch.dict("server.os.environ", {
+            "MOTORINN_XTIME_CARROLL_URL": "",
+            "MOTORINN_XTIME_CARROLL_ACTIVE": "false",
+            "MOTORINN_XTIME_CARROLL_VERIFIED_LOCATION": "",
+        }, clear=False):
+            listed = self.client.post("/mcp", headers=headers, json={
+                "jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {},
+            }).get_json()["result"]["tools"]
+            called = self.client.post("/mcp", headers=headers, json={
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {"name": "get_service_information", "arguments": {}},
+            }).get_json()["result"]["structuredContent"]
+            handoff = self.client.get("/service-scheduler", headers=headers)
+
+        names = {tool["name"] for tool in listed}
+        self.assertIn("get_service_information", names)
+        self.assertFalse(names & {"create_appointment", "book_service", "confirm_appointment", "cancel_appointment"})
+        self.assertEqual(called["stableHandoffUrl"], "https://ai.motorinntoyotaofcarroll.com/service-scheduler")
+        self.assertTrue(called["actionUrl"].startswith("https://www.motorinntoyotaofcarroll.com/"))
+        self.assertEqual(called["availableOperations"], {
+            "information": True,
+            "request": False,
+            "liveAvailability": False,
+            "hold": False,
+            "confirm": False,
+            "reschedule": False,
+            "cancel": False,
+        })
+        self.assertEqual(handoff.status_code, 302)
+        self.assertEqual(handoff.headers["Location"], "https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx")
 
     def test_all_site_brands_share_the_single_carroll_service_location(self) -> None:
         responses = [

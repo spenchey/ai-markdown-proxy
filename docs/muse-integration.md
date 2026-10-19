@@ -1,0 +1,33 @@
+# Muse inventory integration assessment
+
+## Reuse the existing service
+
+The existing AI mirror is the integration target. Keep its DealerVault/Athena active-stock gate, public DealerOn catalog match, rooftop isolation, public-field projection, source freshness checks, HTTP routes, and MCP server. Do not add a second inventory fetcher, store, or production service.
+
+Current read surfaces are `GET /api/v1/vehicles`, `GET /api/v1/vehicles/{vin}`, `GET /api/v1/locations`, `GET /api/v1/service-information`, `GET /api/v1/parts-information`, `GET /openapi.json`, and `POST /mcp`. The default MCP tool set remains `search_vehicles`, `get_vehicle`, `list_locations`, `get_service_information`, and `get_parts_information`. `/mcp/context` offers location, service, parts, and `search_public_website`; `/mcp/customer` combines these with the original five public tools. Static search reads only the validated page set (`dealership.md`, `contact-hours.md`, `service.md`, `finance-trade.md`, `policies.md`); it never calls inventory or offers loaders. The default `/mcp` profile and its tool list remain unchanged.
+
+The supplied Motor Inn–Muse contract names `search_inventory`, `get_vehicle` by `vehicle_id`, `list_locations`, `compare_vehicles`, and `get_inventory_freshness`. Those files are a design contract, not a platform-specific onboarding manifest. The public customer profile uses the standard MCP Streamable HTTP endpoint and discovers the existing tools with `tools/list`; the public OpenAPI file describes the HTTP routes. Customer setup is documented in [customer-agent-connection.md](customer-agent-connection.md).
+
+| Muse inventory capability | Existing proxy surface | Compatibility gap |
+| --- | --- | --- |
+| Authorized locations | `list_locations` returns Carroll plus the request's brand context | The existing physical ID is `carroll`; brand sites remain separate request contexts, not separate physical locations. |
+| Search | `search_vehicles` and `GET /api/v1/vehicles` | Current inputs use lexical `query`, new/used, make/model, dollar prices, and limit 1–25. Muse's proposed schema uses location IDs, year bounds, body style, minor-unit prices, and limit up to 50. Do not silently ignore unsupported filters or convert unverified values. |
+| Vehicle detail | `get_vehicle` and `/api/v1/vehicles/{vin}` | Current lookup key is exact VIN. Muse proposes a stable opaque `vehicle_id`; map only to the existing documented public result ID after its scope and stability are confirmed. |
+| Comparison | No current comparison tool | The supplied Release 1 plan includes factual comparison of 2–5 listings. Add it only after the public ID mapping, freshness behavior, available-status mapping, and price disclosures can satisfy the proposed contract. Preserve unknown fields; do not infer recommendation or financing. |
+| Inventory freshness | Per-vehicle `sourceFreshness` and `/__health/full` timestamps | There is no per-location freshness MCP tool. Reuse the two existing source timestamps and fail-closed health logic; do not claim the health endpoint is a production inventory API without reviewing its response contract. |
+
+The current price mapper selects the first parseable positive DealerVault field in this order: `internet_price`, `list_price`, then `msrp`; it adds the configured documentation fee and returns the winning field as `advertisedPrice.sourceField`. Search min/max price filters use that same fallback. The proposed Muse mapper therefore sets `amount_minor: null`, `basis: call_for_price`, and an explicit conditions notice; it rejects `max_price_minor`. This allows non-price inventory detail to be represented without a new price-semantics decision. The existing API's amount selection is unchanged.
+
+Freshness semantics are now explicit in the current OpenAPI response: `dealerVaultTimestampBasis` is `s3_object_last_modified`, and `publicCatalogTimestampBasis` is `http_last_modified_or_retrieval_time`. The private inventory timestamp is the S3 object's `LastModified` delivery time; the loader does not read a source-update timestamp from the JSON rows. The catalog timestamp is the HTTP `Last-Modified` header, falling back to retrieval time when the header is absent. Existing fail-closed age limits are 36 hours for DealerVault and normally 36 hours for the catalog, with a configurable Monday allowance defaulting to 54 hours. The proposed Muse mapper leaves `source_updated_at` and `ingested_at` null, uses `basis: ingestion_only`, and returns `state: unknown`; it never promotes these timestamps into an upstream update claim. `checked_at` is supplied by the caller. Inventory search must not claim fresh or available results from this mapper.
+
+The current projection passes through the public catalog's `availability` text (or `availability not stated`) and filters condition to `new`/`used`. The proposed mapper sets availability to `unknown` regardless of that text; it does not infer an enum mapping. Matching requires exactly one DealerVault row for the intersection of the uppercase stock/id key and VIN key. The mapper hashes the existing public result ID with `location_id=carroll` to form an opaque scoped ID; unsupported attributes remain null and photos are omitted. Price, timestamps, and availability remain informational unknowns, so this is not an activated search adapter.
+
+## Service remains links-only
+
+The existing `get_service_information` result and `GET /service-scheduler` redirect describe the public customer journey. The tool reports the current `actionUrl`, the stable handoff URL, and the supported capability state for each brand. Its `availableOperations` has `information: true` and `request`, `liveAvailability`, `hold`, `confirm`, `reschedule`, and `cancel` set to `false`.
+
+The scheduler route redirects to the existing Chevrolet, Toyota, or group journey. A redirect is a link handoff, not an appointment request or confirmation. Do not add a service-booking tool to Muse Release 1. Direct booking is deferred and is not a launch gate for inventory search or comparison.
+
+## Release state
+
+The user has authorized this customer-facing use of the existing public matched inventory projection. The current profile reuses that projection; it does not publish raw supplier rows or customer records. The separate Muse contract mapper remains hard-disabled because it cannot truthfully fill every proposed field from the current source semantics. The customer MCP route and connection instructions are implemented locally and covered by tests, but this candidate has not been deployed. The normal release/publishing action remains outstanding; no personal Muse account or customer-specific credentials are required by the public endpoint.
