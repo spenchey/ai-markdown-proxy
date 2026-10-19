@@ -14,6 +14,8 @@ COPY server.py .
 COPY agent_access.py .
 COPY content ./content
 COPY openapi ./openapi
+RUN mkdir -p docs
+COPY docs/customer-agent-connection.md ./docs/customer-agent-connection.md
 
 EXPOSE 8080
 
