@@ -679,7 +679,7 @@ class AgentAccessTests(unittest.TestCase):
             "jsonrpc": "2.0", "id": 6, "method": "initialize",
             "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
         })
-        self.assertEqual(negotiated.get_json()["result"]["protocolVersion"], "2025-11-25")
+        self.assertEqual(negotiated.get_json()["result"]["protocolVersion"], "2025-03-26")
 
     def test_mcp_rejects_untrusted_origins_and_does_not_offer_get_stream(self) -> None:
         rejected = self.client.post(

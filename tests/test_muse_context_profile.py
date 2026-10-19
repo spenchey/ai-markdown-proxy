@@ -98,11 +98,15 @@ class MuseContextProfileTests(unittest.TestCase):
         self.assertTrue(all(tool["outputSchema"]["type"] == "object" for tool in customer))
 
     def test_customer_profile_supports_standard_initialize_list_and_inventory_call(self) -> None:
-        initialize = self.mcp(
-            "/mcp/customer",
-            "initialize",
-            {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "fixture-client", "version": "1"}},
-        )
+        initialize_responses = {
+            version: self.mcp(
+                "/mcp/customer",
+                "initialize",
+                {"protocolVersion": version, "capabilities": {}, "clientInfo": {"name": "fixture-client", "version": "1"}},
+                request_id=index,
+            )
+            for index, version in enumerate(("2025-11-25", "2025-06-18", "2025-03-26"), start=10)
+        }
         listed = self.mcp("/mcp/customer", "tools/list", {}).get_json()["result"]["tools"]
         calls = [
             {"name": "search_vehicles", "arguments": {"condition": "new", "limit": 5}},
@@ -115,8 +119,11 @@ class MuseContextProfileTests(unittest.TestCase):
             inventory = self.mcp("/mcp/customer", "tools/call", calls[0]).get_json()["result"]
         context = self.mcp("/mcp/customer", "tools/call", calls[1]).get_json()["result"]
 
-        self.assertEqual(initialize.get_json()["result"]["protocolVersion"], "2025-11-25")
-        self.assertIn("tools", initialize.get_json()["result"]["capabilities"])
+        self.assertEqual(
+            {version: response.get_json()["result"]["protocolVersion"] for version, response in initialize_responses.items()},
+            {version: version for version in initialize_responses},
+        )
+        self.assertTrue(all("tools" in response.get_json()["result"]["capabilities"] for response in initialize_responses.values()))
         self.assertTrue(all(tool["annotations"]["readOnlyHint"] for tool in listed))
         self.assertEqual(inventory["structuredContent"]["schema"], "motorinn.vehicleSearch.v1")
         self.assertEqual(context["structuredContent"]["resultCount"] > 0, True)
