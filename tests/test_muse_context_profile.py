@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 import server
@@ -59,6 +60,11 @@ class MuseContextProfileTests(unittest.TestCase):
         self.assertIn("/mcp/customer", guide.get_data(as_text=True))
         self.assertIn("/agent-connection.md", llms.get_data(as_text=True))
         self.assertIn("/mcp/customer", llms.get_data(as_text=True))
+
+    def test_docker_image_copies_only_the_customer_facing_guide_from_docs(self) -> None:
+        dockerfile = Path(__file__).parent.parent.joinpath("Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("COPY docs/customer-agent-connection.md ./docs/customer-agent-connection.md", dockerfile)
+        self.assertNotIn("COPY docs ./docs", dockerfile)
 
     def mcp(self, path: str, method: str, params: dict, request_id: int = 1):
         return self.client.post(
