@@ -134,6 +134,7 @@ STATIC_FILES = {
 }
 DISCOVERY_PATHS = (
     "/",
+    "/feed.json",
     "/llms.txt",
     "/llms-full.txt",
     "/dealership.md",
@@ -439,6 +440,37 @@ def llms_content(site: Site, filename: str) -> str:
         f"- [Read-only MCP endpoint](https://{site.ai_host}/mcp)"
     )
     return f"{body}\n\n{nudge}\n"
+
+
+FEED_LINE = "# machine-readable: /feed.json"
+
+
+def feed_items(site: Site) -> list[dict[str, str]]:
+    """Build the machine-readable page feed from the site's existing llms.txt links."""
+    text = static_content(site, "llms.txt")
+    manifest_generated_at = content_manifest_generated_at()
+    llms_mtime = datetime.fromtimestamp(
+        (CONTENT_ROOT / site.content_slug / "llms.txt").stat().st_mtime, timezone.utc
+    )
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    pattern = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)(?::\s*(.+))?$", re.MULTILINE)
+    for match in pattern.finditer(text):
+        title = match.group(1).strip()
+        url = match.group(2).strip()
+        summary = re.sub(r"\s+", " ", (match.group(3) or "")).strip()
+        if url in seen:
+            continue
+        seen.add(url)
+        parsed = urlsplit(url)
+        local_name = parsed.path.lstrip("/")
+        candidate = CONTENT_ROOT / site.content_slug / local_name
+        if candidate.is_file() and candidate.stat().st_mtime:
+            updated = iso_timestamp(datetime.fromtimestamp(candidate.stat().st_mtime, timezone.utc))
+        else:
+            updated = manifest_generated_at or iso_timestamp(llms_mtime)
+        items.append({"site": site.key, "url": url, "title": title, "updated": updated, "summary": summary})
+    return items
 
 
 def canonical_catalog_link(value: str) -> str:
@@ -1470,6 +1502,16 @@ def serve_robots() -> Response:
 @app.route("/sitemap.xml")
 def serve_sitemap() -> Response:
     return xml_response(sitemap_xml(resolve_site()))
+
+
+@app.route("/feed.json")
+def serve_feed_json() -> Response:
+    site = resolve_site()
+    try:
+        return api_response(feed_items(site), cache_seconds=3600)
+    except SourceUnavailable as exc:
+        logger.error(json.dumps({"event": "feed_source_failure", "site": site.key, "error": str(exc)}))
+        return api_error("source_unavailable", "Validated site content is temporarily unavailable", 503, retryable=True)
 
 
 @app.route("/llms.txt")

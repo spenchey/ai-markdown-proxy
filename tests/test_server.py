@@ -29,6 +29,36 @@ class ProxyTests(unittest.TestCase):
         self.assertIn("https://ai.motorinnofcarroll.com/llms?query=service&limit=3", response.get_data(as_text=True))
         self.assertNotIn("https://www.motorinnofcarroll.com/dealership.md", response.get_data(as_text=True))
 
+    def test_feed_json_lists_validated_site_pages(self) -> None:
+        response = self.client.get("/feed.json", headers={"Host": "ai.motorinnofcarroll.com"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("application/json"))
+        items = response.get_json()
+        self.assertTrue(items)
+        self.assertEqual({k for k in items[0]}, {"site", "url", "title", "updated", "summary"})
+        self.assertTrue(all(item["site"] == "motorinnchevy" for item in items))
+        self.assertIn("public", response.headers["Cache-Control"])
+
+    def test_llms_txt_exposes_machine_readable_feed_pointer(self) -> None:
+        response = self.client.get("/llms.txt", headers={"Host": "ai.motorinnautogroup.com"})
+        self.assertIn("# machine-readable: /feed.json", response.get_data(as_text=True))
+
+
+    def test_feed_json_lists_validated_site_pages(self) -> None:
+        response = self.client.get("/feed.json", headers={"Host": "ai.motorinnofcarroll.com"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("application/json"))
+        items = response.get_json()
+        self.assertTrue(items)
+        self.assertEqual({k for k in items[0]}, {"site", "url", "title", "updated", "summary"})
+        self.assertTrue(all(item["site"] == "motorinnchevy" for item in items))
+        self.assertIn("public", response.headers["Cache-Control"])
+
+    def test_llms_txt_exposes_machine_readable_feed_pointer(self) -> None:
+        response = self.client.get("/llms.txt", headers={"Host": "ai.motorinnautogroup.com"})
+        self.assertIn("# machine-readable: /feed.json", response.get_data(as_text=True))
+
+
     def test_cached_markdown_keeps_markdown_content_type_and_vary(self) -> None:
         with patch("server.fetch_page", return_value="<html><body><main><h1>Test</h1></main></body></html>"):
             first = self.client.get("/aboutus.aspx", headers={"Host": "ai.motorinnautogroup.com", "Accept": "text/markdown"})
