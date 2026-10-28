@@ -11,6 +11,7 @@ Stable facts verified 2026-08-02T13:30:00-05:00. Generated from source/sites.jso
 - [New inventory](https://www.motorinnautogroup.com/new-inventory.md): Current new vehicles, VINs, prices, availability, locations, and canonical VDP links.
 - [Used inventory](https://www.motorinnautogroup.com/used-inventory.md): Current pre-owned vehicles, VINs, prices, mileage, availability, locations, and canonical VDP links.
 - [Current offers](https://www.motorinnautogroup.com/offers.md): Current vehicle and service offers with eligibility, expiration, and disclosures.
+- [Live inventory](https://www.motorinnautogroup.com/inventory.md): Current matched units in one machine-readable table, including price, mileage, photo, and dealer comments.
 - [Service and parts](https://www.motorinnautogroup.com/service.md): Service capabilities and appointment/parts resources.
 - [Finance and trade](https://www.motorinnautogroup.com/finance-trade.md): Financing, calculator, pre-approval, and trade appraisal resources.
 - [Policies](https://www.motorinnautogroup.com/policies.md): Privacy, legal, pricing, consent, and data-use references.
