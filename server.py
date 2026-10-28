@@ -134,6 +134,7 @@ STATIC_FILES = {
 }
 DISCOVERY_PATHS = (
     "/",
+    "/feed.json",
     "/llms.txt",
     "/llms-full.txt",
     "/agent-connection.md",
@@ -142,6 +143,7 @@ DISCOVERY_PATHS = (
     "/service.md",
     "/finance-trade.md",
     "/policies.md",
+    "/inventory.md",
     "/new-inventory.md",
     "/used-inventory.md",
     "/offers.md",
@@ -158,7 +160,7 @@ AGENT_QUERY_EXAMPLES = (
     "/llms?query=service&limit=3",
     "/llms/json?query=service&limit=3",
 )
-MACHINE_FILES = STATIC_FILES | {"new-inventory.md", "used-inventory.md", "offers.md", "robots.txt", "sitemap.xml"}
+MACHINE_FILES = STATIC_FILES | {"new-inventory.md", "used-inventory.md", "inventory.md", "offers.md", "robots.txt", "sitemap.xml"}
 QUERY_STATIC_FILES = ("dealership.md", "contact-hours.md", "service.md", "finance-trade.md", "policies.md")
 BOT_MARKERS = {
     "OAI-SearchBot": "openai-search",
@@ -445,6 +447,37 @@ def llms_content(site: Site, filename: str) -> str:
     return f"{body}\n\n{nudge}\n"
 
 
+FEED_LINE = "# machine-readable: /feed.json"
+
+
+def feed_items(site: Site) -> list[dict[str, str]]:
+    """Build the machine-readable page feed from the site's existing llms.txt links."""
+    text = static_content(site, "llms.txt")
+    manifest_generated_at = content_manifest_generated_at()
+    llms_mtime = datetime.fromtimestamp(
+        (CONTENT_ROOT / site.content_slug / "llms.txt").stat().st_mtime, timezone.utc
+    )
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    pattern = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)(?::\s*(.+))?$", re.MULTILINE)
+    for match in pattern.finditer(text):
+        title = match.group(1).strip()
+        url = match.group(2).strip()
+        summary = re.sub(r"\s+", " ", (match.group(3) or "")).strip()
+        if url in seen:
+            continue
+        seen.add(url)
+        parsed = urlsplit(url)
+        local_name = parsed.path.lstrip("/")
+        candidate = CONTENT_ROOT / site.content_slug / local_name
+        if candidate.is_file() and candidate.stat().st_mtime:
+            updated = iso_timestamp(datetime.fromtimestamp(candidate.stat().st_mtime, timezone.utc))
+        else:
+            updated = manifest_generated_at or iso_timestamp(llms_mtime)
+        items.append({"site": site.key, "url": url, "title": title, "updated": updated, "summary": summary})
+    return items
+
+
 def canonical_catalog_link(value: str) -> str:
     parsed = urlsplit(value)
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
@@ -580,6 +613,64 @@ def render_inventory(site: Site, condition: str) -> str:
         ]
     )
     return "\n".join(lines).strip() + "\n"
+
+
+INVENTORY_CACHE_TTL_SECONDS = 24 * 3600
+
+
+def inventory_table_markdown(site: Site) -> str:
+    rows, catalog_modified, inventory_modified = match_rows()
+    header = "| VIN | Year | Make | Model | Trim | Price | Miles | Body | Photo | Dealer comments |"
+    separator = "|---|---:|---|---|---|---:|---:|---|---|---|"
+    lines = [
+        f"# {site.name} - Live inventory",
+        "",
+        f"> Active units matched between DealerVault/Athena and DealerOn's public catalog. Total: {len(rows)}.",
+        "",
+        f"DealerVault last updated: {iso_timestamp(inventory_modified)}  ",
+        f"Public catalog last updated: {iso_timestamp(catalog_modified)}",
+        "",
+        header,
+        separator,
+    ]
+    for row in rows:
+        source = row["dealerVault"] if isinstance(row.get("dealerVault"), dict) else {}
+        price = display_price(source)
+        miles = number(source.get("odometer")) or number(row.get("odometer"))
+        body = str(row.get("vehicle_body") or row.get("body_style") or source.get("vehicle_body") or "not stated").strip()
+        comments = str(source.get("dealer_comments") or source.get("dealerComments") or row.get("dealer_comments") or "not published").strip()
+        photo = row.get("image_link") or ""
+        lines.append(
+            "| "
+            + " | ".join([
+                str(row.get("vin") or "not stated"),
+                str(row.get("vehicle_year") or "not stated"),
+                str(row.get("vehicle_make") or "not stated"),
+                str(row.get("vehicle_model") or "not stated"),
+                str(row.get("vehicle_trim") or "not stated"),
+                f"${price:,.0f}" if price else "not stated",
+                f"{miles:,.0f}" if miles else "not stated",
+                body,
+                f"[photo]({photo})" if photo.startswith("http") else "not stated",
+                " ".join(comments.split()),
+            ])
+            + " |"
+        )
+    lines.extend([
+        "",
+        "No customer or lead data is included in this resource.",
+        "Availability and equipment can change. Confirm current details on the linked vehicle page or with Motor Inn Auto Group.",
+    ])
+    return "\n".join(lines).strip() + "\n"
+
+
+def rendered_inventory_table(site: Site) -> str:
+    key = f"inventory-table:{site.key}"
+    body = cache_get(_page_cache, key, INVENTORY_CACHE_TTL_SECONDS)
+    if body is None:
+        body = inventory_table_markdown(site)
+        cache_set(_page_cache, key, body)
+    return body
 
 
 def render_offers(site: Site) -> str:
@@ -1567,6 +1658,16 @@ def serve_sitemap() -> Response:
     return xml_response(sitemap_xml(resolve_site()))
 
 
+@app.route("/feed.json")
+def serve_feed_json() -> Response:
+    site = resolve_site()
+    try:
+        return api_response(feed_items(site), cache_seconds=3600)
+    except SourceUnavailable as exc:
+        logger.error(json.dumps({"event": "feed_source_failure", "site": site.key, "error": str(exc)}))
+        return api_error("source_unavailable", "Validated site content is temporarily unavailable", 503, retryable=True)
+
+
 @app.route("/llms.txt")
 @app.route("/llms-full.txt")
 def serve_llms() -> Response:
@@ -1604,6 +1705,18 @@ def serve_inventory() -> Response:
         return markdown_response(render_inventory(site, condition), canonical=canonical, max_age=300)
     except Exception as exc:  # noqa: BLE001
         logger.error(json.dumps({"event": "inventory_source_failure", "site": site.key, "error": str(exc)}))
+        return markdown_response(f"# Inventory temporarily unavailable\n\n{exc}\n", status=503, max_age=0)
+
+
+@app.route("/inventory.md")
+def serve_inventory_table() -> Response:
+    site = resolve_site()
+    try:
+        body = rendered_inventory_table(site)
+        canonical = urljoin(site.base_url + "/", "inventory.md")
+        return markdown_response(body, canonical=canonical, max_age=INVENTORY_CACHE_TTL_SECONDS)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(json.dumps({"event": "inventory_table_source_failure", "site": site.key, "error": str(exc)}))
         return markdown_response(f"# Inventory temporarily unavailable\n\n{exc}\n", status=503, max_age=0)
 
 

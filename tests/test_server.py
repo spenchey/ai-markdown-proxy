@@ -29,6 +29,104 @@ class ProxyTests(unittest.TestCase):
         self.assertIn("https://ai.motorinnofcarroll.com/llms?query=service&limit=3", response.get_data(as_text=True))
         self.assertNotIn("https://www.motorinnofcarroll.com/dealership.md", response.get_data(as_text=True))
 
+    def test_inventory_table_is_host_scoped_and_cached_daily(self) -> None:
+        public = [
+            {
+                "id": "C1",
+                "stock_number": "C1",
+                "vin": "VIN1-CHEVY-ROOFTOP",
+                "condition": "new",
+                "availability": "in stock",
+                "vehicle_year": "2024",
+                "vehicle_make": "CHEVROLET",
+                "vehicle_model": "Malibu",
+                "vehicle_trim": "LT",
+                "link": "https://www.motorinnofcarroll.com/vehicle/C1",
+                "image_link": "https://images.example/C1.jpg",
+            }
+        ]
+        private = [{"stock_number": "C1", "vin": "VIN1-CHEVY-ROOFTOP", "internet_price": "25000", "odometer": "10,000"}]
+        with patch("server.load_catalog", return_value=(public, NOW)), patch("server.load_private_inventory", return_value=(private, NOW)):
+            first = self.client.get("/inventory.md", headers={"Host": "ai.motorinnofcarroll.com"})
+            second = self.client.get("/inventory.md", headers={"Host": "ai.motorinnofcarroll.com"})
+        body = first.get_data(as_text=True)
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(first.content_type.startswith("text/markdown"))
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.get_data(), second.get_data())
+        self.assertIn("DealerVault last updated", body)
+        self.assertIn("Public catalog last updated", body)
+        self.assertIn("| VIN | Year | Make | Model | Trim | Price | Miles | Body | Photo | Dealer comments |", body)
+        self.assertIn("| VIN1-CHEVY-ROOFTOP | 2024 | CHEVROLET | Malibu | LT | $25,180 | 10,000 ", body)
+        self.assertIn("| [photo](https://images.example/C1.jpg) |", body)
+        self.assertIn("public, max-age=86400", first.headers["Cache-Control"])
+
+    def test_inventory_table_is_limited_to_matching_rooftop(self) -> None:
+        public = [
+            {
+                "id": "TOY1",
+                "stock_number": "TOY1",
+                "vin": "VIN2-TOYOTA-ROOFTO",
+                "condition": "new",
+                "availability": "in stock",
+                "vehicle_year": "2024",
+                "vehicle_make": "TOYOTA",
+                "vehicle_model": "Tundra",
+                "vehicle_trim": "SR5",
+                "link": "https://www.motorinntoyotaofcarroll.com/vehicle/TOY1",
+                "image_link": "",
+            }
+        ]
+        private = [{"stock_number": "TOY1", "vin": "VIN2-TOYOTA-ROOFTO", "internet_price": "50000"}]
+        with patch("server.load_catalog", return_value=(public, NOW)), patch("server.load_private_inventory", return_value=(private, NOW)):
+            response = self.client.get("/inventory.md", headers={"Host": "ai.motorinntoyotaofcarroll.com"})
+        body = response.get_data(as_text=True)
+        self.assertIn("VIN2-TOYOTA-ROOFTO", body)
+        self.assertNotIn("VIN1-CHEVY-ROOFTOP", body)
+
+    def test_inventory_table_fails_closed_when_source_is_unavailable(self) -> None:
+        with patch("server.load_catalog", side_effect=server.SourceUnavailable("catalog stale")):
+            response = self.client.get("/inventory.md", headers={"Host": "ai.motorinnautogroup.com"})
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("catalog stale", response.get_data(as_text=True))
+
+    def test_sitemap_and_llms_txt_expose_inventory_table(self) -> None:
+        sitemap = self.client.get("/sitemap.xml", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True)
+        llms = self.client.get("/llms.txt", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True)
+        self.assertIn("https://ai.motorinnofcarroll.com/inventory.md", sitemap)
+        self.assertIn("/inventory.md", llms)
+
+
+    def test_feed_json_lists_validated_site_pages(self) -> None:
+        response = self.client.get("/feed.json", headers={"Host": "ai.motorinnofcarroll.com"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("application/json"))
+        items = response.get_json()
+        self.assertTrue(items)
+        self.assertEqual({k for k in items[0]}, {"site", "url", "title", "updated", "summary"})
+        self.assertTrue(all(item["site"] == "motorinnchevy" for item in items))
+        self.assertIn("public", response.headers["Cache-Control"])
+
+    def test_llms_txt_exposes_machine_readable_feed_pointer(self) -> None:
+        response = self.client.get("/llms.txt", headers={"Host": "ai.motorinnautogroup.com"})
+        self.assertIn("# machine-readable: /feed.json", response.get_data(as_text=True))
+
+
+    def test_feed_json_lists_validated_site_pages(self) -> None:
+        response = self.client.get("/feed.json", headers={"Host": "ai.motorinnofcarroll.com"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("application/json"))
+        items = response.get_json()
+        self.assertTrue(items)
+        self.assertEqual({k for k in items[0]}, {"site", "url", "title", "updated", "summary"})
+        self.assertTrue(all(item["site"] == "motorinnchevy" for item in items))
+        self.assertIn("public", response.headers["Cache-Control"])
+
+    def test_llms_txt_exposes_machine_readable_feed_pointer(self) -> None:
+        response = self.client.get("/llms.txt", headers={"Host": "ai.motorinnautogroup.com"})
+        self.assertIn("# machine-readable: /feed.json", response.get_data(as_text=True))
+
+
     def test_cached_markdown_keeps_markdown_content_type_and_vary(self) -> None:
         with patch("server.fetch_page", return_value="<html><body><main><h1>Test</h1></main></body></html>"):
             first = self.client.get("/aboutus.aspx", headers={"Host": "ai.motorinnautogroup.com", "Accept": "text/markdown"})
