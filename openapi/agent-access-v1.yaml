@@ -535,6 +535,18 @@ components:
           minLength: 1
         trim:
           type: [string, "null"]
+        bodyStyle:
+          type: [string, "null"]
+        exteriorColor:
+          type: [string, "null"]
+        interiorColor:
+          type: [string, "null"]
+        engine:
+          type: [string, "null"]
+        fuelType:
+          type: [string, "null"]
+        transmission:
+          type: [string, "null"]
         condition:
           type: string
           enum: [new, used]

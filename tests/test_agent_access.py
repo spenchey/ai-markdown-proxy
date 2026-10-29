@@ -158,6 +158,7 @@ class AgentAccessTests(unittest.TestCase):
         self.assertEqual(set(vehicle), {
             "id", "vin", "stockNumber", "year", "make", "model", "trim", "condition",
             "advertisedPrice", "availability", "site", "canonicalUrl", "imageUrl", "sourceFreshness",
+            "bodyStyle", "exteriorColor", "interiorColor", "engine", "fuelType", "transmission",
         })
         self.assertNotIn("cost", json.dumps(payload))
         self.assertNotIn("private@example.com", json.dumps(payload))

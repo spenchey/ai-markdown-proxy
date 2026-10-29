@@ -227,7 +227,13 @@ def _vehicle_projection(
         "year": int(year_text) if year_text.isdigit() else 0,
         "make": _text(row.get("vehicle_make")),
         "model": _text(row.get("vehicle_model")),
-        "trim": _text(row.get("vehicle_trim")) or None,
+        "trim": _text(row.get("vehicle_trim")) or _text(_dealer_vault_value(row, "vehicle_trim")) or None,
+        "bodyStyle": _text(row.get("vehicle_body")) or _text(_dealer_vault_value(row, "vehicle_body")) or None,
+        "exteriorColor": _text(row.get("exterior_color")) or _text(_dealer_vault_value(row, "exterior_color")) or None,
+        "interiorColor": _text(row.get("interior_color")) or _text(_dealer_vault_value(row, "interior_color")) or None,
+        "engine": _text(row.get("engine_desc")) or _text(_dealer_vault_value(row, "engine_desc")) or None,
+        "fuelType": _text(row.get("fuel_type")) or _text(_dealer_vault_value(row, "fuel_type")) or None,
+        "transmission": _text(row.get("transmission_desc")) or _text(_dealer_vault_value(row, "transmission_desc")) or None,
         "condition": _text(row.get("condition")).casefold(),
         "advertisedPrice": price,
         "availability": _text(row.get("availability")) or "availability not stated",
@@ -236,6 +242,13 @@ def _vehicle_projection(
         "imageUrl": _public_url(row.get("image_link")),
         "sourceFreshness": source_freshness(catalog_modified, inventory_modified),
     }
+
+
+def _dealer_vault_value(row, key):
+    vault = row.get("dealerVault") if isinstance(row, dict) else None
+    if isinstance(vault, dict):
+        return vault.get(key)
+    return None
 
 
 def _cursor_fingerprint(filters: Mapping[str, Any]) -> str:

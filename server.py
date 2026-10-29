@@ -596,6 +596,14 @@ def render_inventory(site: Site, condition: str) -> str:
             lines.append(f"- Price: ${price:,.0f}, including ${DOC_FEE:,.0f} documentation fee. Plus tax, title, and license.")
         if condition == "used" and number(source.get("odometer")):
             lines.append(f"- Mileage: {number(source.get('odometer')):,.0f} miles")
+        dv = source if isinstance(source, dict) else {}
+        trim_val = str(row.get("vehicle_trim") or dv.get("vehicle_trim") or "").strip()
+        if trim_val:
+            lines.append(f"- Trim: {trim_val}")
+        for label, key in (("Body style", "vehicle_body"), ("Exterior color", "exterior_color"), ("Interior color", "interior_color"), ("Engine", "engine_desc"), ("Fuel type", "fuel_type"), ("Transmission", "transmission_desc")):
+            val = str(dv.get(key) or "").strip()
+            if val:
+                lines.append(f"- {label}: {val}")
         lines.extend(
             [
                 f"- VIN: {row.get('vin', '')}",
@@ -647,7 +655,7 @@ def inventory_table_markdown(site: Site) -> str:
                 str(row.get("vehicle_year") or "not stated"),
                 str(row.get("vehicle_make") or "not stated"),
                 str(row.get("vehicle_model") or "not stated"),
-                str(row.get("vehicle_trim") or "not stated"),
+                str(row.get("vehicle_trim") or (source.get("vehicle_trim") if isinstance(source, dict) else None) or "not stated"),
                 f"${price:,.0f}" if price else "not stated",
                 f"{miles:,.0f}" if miles else "not stated",
                 body,
