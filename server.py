@@ -40,6 +40,7 @@ import agent_access
 
 CONTENT_ROOT = Path(__file__).resolve().parent / "content"
 OPENAPI_PATH = Path(__file__).resolve().parent / "openapi" / "agent-access-v1.yaml"
+AUDIT_DATA_ROOT = Path(__file__).resolve().parent / "audit_data"
 CACHE_TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", "3600"))
 DYNAMIC_CACHE_TTL_SECONDS = int(os.environ.get("DYNAMIC_CACHE_TTL_SECONDS", "300"))
 MAX_SOURCE_AGE_SECONDS = int(os.environ.get("MAX_SOURCE_AGE_SECONDS", str(36 * 3600)))
@@ -47,6 +48,15 @@ CATALOG_MONDAY_MAX_SOURCE_AGE_SECONDS = int(
     os.environ.get("CATALOG_MONDAY_MAX_SOURCE_AGE_SECONDS", str(54 * 3600))
 )
 CATALOG_SCHEDULE_TIME_ZONE = ZoneInfo("America/Chicago")
+
+
+@dataclass(frozen=True)
+class LinkRecord:
+    source_url: str
+    dest_url: str
+    anchor_text: str
+    rank: int
+    dataset: str
 
 
 def validated_documentary_fee(value: Any) -> float:
@@ -157,6 +167,9 @@ DISCOVERY_PATHS = (
     "/mcp/customer",
     "/api",
     "/ai.txt",
+    "/links/motorinnautogroup.html",
+    "/links/motorinnofcarroll.html",
+    "/links/motorinntoyotaofcarroll.html",
     "/skills.txt",
     "/.well-known/agents.json",
     "/.well-known/mcp.json",
@@ -1090,10 +1103,146 @@ def xml_response(body: str, *, max_age: int = 3600) -> Response:
     return response
 
 
+@lru_cache(maxsize=1)
+def link_records() -> tuple[LinkRecord, ...]:
+    records: list[LinkRecord] = []
+    for dataset_dir in sorted(AUDIT_DATA_ROOT.glob("*/")):
+        links_path = dataset_dir / "links.csv"
+        if not links_path.exists():
+            continue
+        with links_path.open(newline="", encoding="utf-8") as source:
+            for rank, row in enumerate(csv.DictReader(source)):
+                records.append(
+                    LinkRecord(
+                        source_url=row["source_url"],
+                        dest_url=row["dest_url"],
+                        anchor_text=row["anchor_text"],
+                        rank=rank,
+                        dataset=dataset_dir.name,
+                    )
+                )
+    return tuple(records)
+
+
+def link_records_for_site(site: Site) -> tuple[LinkRecord, ...]:
+    canonical_host = urlsplit(site.base_url).hostname or ""
+    dataset_name = f"{site.content_slug}.com"
+    records = (
+        record
+        for record in link_records()
+        if url_host(record.source_url) in {canonical_host, site.ai_host}
+    )
+    return tuple(sorted(records, key=lambda record: (record.dataset != dataset_name, record.rank)))
+
+
+def related_link_records(site: Site, source_path: str) -> tuple[LinkRecord, ...]:
+    normalized_path = "/" + source_path.lstrip("/")
+    return tuple(
+        record
+        for record in link_records_for_site(site)
+        if urlsplit(record.source_url).path == normalized_path
+    )
+
+
+def mirror_href(site: Site, target_url: str) -> str:
+    target = urlsplit(target_url)
+    canonical_host = urlsplit(site.base_url).hostname or ""
+    if url_host(target_url) in {canonical_host, site.ai_host}:
+        return urlunsplit(("", "", target.path or "/", target.query, target.fragment))
+    return target_url
+
+
+def url_host(target_url: str) -> str | None:
+    parsed = urlsplit(target_url)
+    if parsed.hostname:
+        return parsed.hostname
+    return urlsplit(f"https://{target_url}").hostname
+
+
+@lru_cache(maxsize=10)
+def hub_urls_for_site(site: Site) -> tuple[str, ...]:
+    hub_path = AUDIT_DATA_ROOT / f"{site.content_slug}.com" / "hubs.md"
+    if not hub_path.exists():
+        return ()
+    urls: list[str] = []
+    for line in hub_path.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"^\s*-\s+URL:\s*(\S+)", line)
+        if match:
+            urls.append(match.group(1))
+    return tuple(urls)
+
+
+def source_is_hub(site: Site, source_path: str) -> bool:
+    normalized_path = "/" + source_path.lstrip("/")
+    hub_paths = {urlsplit(url).path for url in hub_urls_for_site(site)}
+    return normalized_path in hub_paths
+
+
+def related_links_page(site: Site) -> str:
+    records = link_records_for_site(site)
+    visible_top20 = records[:20]
+    remainder = records[20:]
+
+    def anchor_list(items: list[LinkRecord]) -> str:
+        return "\n".join(
+            '        <li><a href="{}" rel="internal follow">{}</a></li>'.format(
+                html.escape(mirror_href(site, record.dest_url)),
+                html.escape(record.anchor_text),
+            )
+            for record in items
+        )
+
+    top_markup = "<ul>\n{}\n      </ul>".format(anchor_list(visible_top20)) if visible_top20 else "<p>No top-20 links are assigned to this host.</p>"
+    remainder_markup = "<ul>\n{}\n      </ul>".format(anchor_list(remainder)) if remainder else "<p>No additional links are assigned to this host.</p>"
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,follow">
+    <link rel="canonical" href="https://{site.ai_host}/links/{site.key}.html">
+    <title>{html.escape(site.name)} related pages</title>
+  </head>
+  <body>
+    <section id="related-pages">
+      <main>
+        <h1>{html.escape(site.name)} related pages</h1>
+        <h2>Top 20</h2>
+        {top_markup}
+        <h2>All supporting links</h2>
+        {remainder_markup}
+      </main>
+    </section>
+  </body>
+</html>
+"""
+
+
+def inject_related_links(page_html: str, site: Site, source_path: str) -> str:
+    records = related_link_records(site, source_path)
+    soup = BeautifulSoup(page_html, "html.parser")
+    section = soup.new_tag("section", id="related-pages")
+    heading = soup.new_tag("h2")
+    heading.string = "Explore" if source_is_hub(site, source_path) else "Related pages"
+    section.append(heading)
+    if records:
+        item_list = soup.new_tag("ul")
+        for record in records:
+            item = soup.new_tag("li")
+            anchor = soup.new_tag("a", href=mirror_href(site, record.dest_url), rel="internal follow")
+            anchor.string = record.anchor_text
+            item.append(anchor)
+            item_list.append(item)
+        section.append(item_list)
+    soup.find("body").append(section)
+    return str(soup)
+
+
 def sitemap_xml(site: Site) -> str:
+    eligible_paths = DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
     urls = "\n".join(
         f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
-        for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
+        for path in eligible_paths
         if path not in {"/mcp", "/mcp/customer", "/service-scheduler"}
     )
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}\n</urlset>\n'
@@ -2008,6 +2157,17 @@ def gbp_review_operations() -> Response:
     return response
 
 
+@app.route("/links/<path:site_key>.html")
+def serve_links_index(site_key: str) -> Response:
+    if site_key not in SITES:
+        return Response("Not found\n", status=404, content_type="text/plain; charset=utf-8")
+    site = SITES[site_key]
+    response = Response(related_links_page(site), content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["X-Robots-Tag"] = "noindex, follow"
+    return response
+
+
 @app.route("/<path:filename>")
 def serve_static_or_proxy(filename: str) -> Response:
     site = resolve_site()
@@ -2018,6 +2178,12 @@ def serve_static_or_proxy(filename: str) -> Response:
     source_path = filename[:-3] if filename.endswith(".md") else filename
     source_url = canonical_url(site, source_path)
     if not wants_markdown:
+        html_records = related_link_records(site, source_path)
+        if html_records:
+            page_html = fetch_page(source_url)
+            response = Response(inject_related_links(page_html, site, source_path), content_type="text/html; charset=utf-8")
+            response.headers["Cache-Control"] = "public, max-age=3600"
+            return response
         return redirect(source_url, code=302)
     key = hashlib.sha256(f"{site.key}|{source_url}".encode()).hexdigest()
     try:
@@ -2035,6 +2201,19 @@ def serve_static_or_proxy(filename: str) -> Response:
 def root() -> Response:
     site = resolve_site()
     if "text/markdown" not in request.headers.get("Accept", ""):
+        related = related_link_records(site, "/")
+        if related:
+            response = Response(inject_related_links(fetch_page(site.base_url), site, "/"), content_type="text/html; charset=utf-8")
+            response.headers["Cache-Control"] = "public, max-age=3600"
+            response.headers["Link"] = (
+                f'<{site.base_url}>; rel="canonical", '
+                f'<https://{site.ai_host}/api>; rel="api-catalog", '
+                f'<https://{site.ai_host}/openapi.json>; rel="service-desc", '
+                f'<https://{site.ai_host}/skills.txt>; rel="service-doc", '
+                f'<https://{site.ai_host}/links/{site.key}.html>; rel="links-index"'
+            )
+            response.headers["X-Robots-Tag"] = "noindex, follow"
+            return response
         response = Response(discovery_html(site), content_type="text/html; charset=utf-8")
         response.headers["Cache-Control"] = "public, max-age=3600"
         response.headers["Link"] = (

@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY server.py .
 COPY agent_access.py .
 COPY content ./content
+COPY audit_data ./audit_data
 COPY openapi ./openapi
 RUN mkdir -p docs
 COPY docs/customer-agent-connection.md ./docs/customer-agent-connection.md

@@ -19,6 +19,43 @@ class ProxyTests(unittest.TestCase):
             server._query_rate_limits.clear()
         server.app.config.update(TESTING=True)
         self.client = server.app.test_client()
+        self._links_patches = [
+            patch.object(server, "related_link_records", return_value=()),
+            patch.object(server, "source_is_hub", return_value=False),
+        ]
+        for patcher in self._links_patches:
+            patcher.start()
+
+    def tearDown(self) -> None:
+        for patcher in self._links_patches:
+            patcher.stop()
+        self._links_patches = [
+            patch.object(server, "related_link_records", return_value=()),
+            patch.object(server, "source_is_hub", return_value=False),
+        ]
+        for patcher in self._links_patches:
+            patcher.start()
+
+    def tearDown(self) -> None:
+        for patcher in self._links_patches:
+            patcher.stop()
+        self._links_patches: list[unittest.mock.patch] = []
+
+    def patch_links(self) -> None:
+        """Remove injected link behavior when testing independent proxy surfaces."""
+        self._links_patches.append(
+            patch.object(server, "related_link_records", side_effect=lambda site, path: ())
+        )
+        self._links_patches.append(
+            patch.object(server, "source_is_hub", side_effect=lambda site, path: False)
+        )
+        for patcher in self._links_patches:
+            patcher.start()
+
+    def tearDown(self) -> None:
+        for patcher in self._links_patches:
+            patcher.stop()
+        self._links_patches.clear()
 
     def test_host_selects_site_specific_validated_content(self) -> None:
         response = self.client.get("/llms.txt", headers={"Host": "ai.motorinnofcarroll.com"})
