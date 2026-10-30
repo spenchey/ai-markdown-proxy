@@ -464,7 +464,7 @@ def lead_upstream_payload(payload: dict[str, Any], entry_url: str = "https://www
     if " " in name:
         first_name, last_name = name.split(" ", 1)
     else:
-        first_name, last_name = name, ""
+        first_name, last_name = name, name
     message = str(payload.get("message", "")).strip()
     source = str(payload.get("source", "")).strip() or "AI Agent"
     comments = f"AI Agent ({source}) | {message}" if message else f"AI Agent ({source})"
