@@ -5,7 +5,9 @@
     "token": {
       "method": "GET",
       "path": "/api/lead/new",
-      "responseFields": ["token"]
+      "responseFields": [
+        "token"
+      ]
     }
   },
   "save": {
@@ -46,5 +48,14 @@
   "observedFailure": {
     "status": 400,
     "email": "Emails with + are rejected upstream"
+  },
+  "testLead": {
+    "liveEndpoint": "https://ai.motorinnofcarroll.com/lead",
+    "liveResult": {
+      "status": 200,
+      "ref": "843bb3c8-a145-4e9b-9529-86701d3d3075",
+      "leadId": 58446418,
+      "leadSource": "Website - Contact Us"
+    }
   }
 }
