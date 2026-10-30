@@ -483,6 +483,10 @@ def lead_upstream_payload(payload: dict[str, Any], entry_url: str = "https://www
         "DisplayType": "in-page",
         "HoneypotFields": json.dumps({"fax_number": "", "address_line3": "", "ui_state": ""}),
         "LeadSourceName": f"AI-MIRROR:{payload.get("_ai_host", "unknown")}",
+        "Campaign": "AI-MIRROR",
+        "UtmSource": payload.get("_ai_host", "unknown"),
+        "UtmMedium": "ai-agent",
+        "UtmCampaign": f"ai-mirror-{payload.get("_site_key", "unknown")}",
         "Browser": "AI Agent Client",
         "OS": "unknown",
         "Device": "unknown",
@@ -533,6 +537,7 @@ def serve_lead() -> Response:
     www_host, entry_url = LEAD_WWW.get(site.key, LEAD_WWW["motorinnofcarroll"])
     payload["_entry_url"] = entry_url
     payload["_ai_host"] = site.ai_host
+    payload["_site_key"] = site.key
     upstream_payload = lead_upstream_payload(payload)
     upstream_payload["EntryUrl"] = entry_url
     try:
