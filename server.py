@@ -467,7 +467,8 @@ def lead_upstream_payload(payload: dict[str, Any], entry_url: str = "https://www
         first_name, last_name = name, name
     message = str(payload.get("message", "")).strip()
     source = str(payload.get("source", "")).strip() or "AI Agent"
-    comments = f"AI Agent ({source}) | {message}" if message else f"AI Agent ({source})"
+    marker = f"AI-MIRROR:{payload.get("_ai_host", "unknown")}"
+    comments = f"{marker} | AI Agent ({source}) | {message}" if message else f"{marker} | AI Agent ({source})"
     return {
         "EntryUrl": entry_url,
         "LeadSource": 32,
@@ -487,11 +488,12 @@ def lead_upstream_payload(payload: dict[str, Any], entry_url: str = "https://www
     }
 
 
-def submit_lead(arguments: dict[str, Any], site_key: str = "motorinnofcarroll") -> dict[str, Any]:
+def submit_lead(arguments: dict[str, Any], site_key: str = "motorinnofcarroll", ai_host: str = "") -> dict[str, Any]:
     """Submit a lead through the same upstream field mapping."""
     source = arguments.pop("source", None) or "AI Agent"
     payload = dict(arguments)
     payload["source"] = source
+    payload["_ai_host"] = ai_host
     try:
         www_host, entry_url = LEAD_WWW.get(site_key, LEAD_WWW["motorinnofcarroll"])
         token = lead_upstream_token(www_host)
@@ -529,6 +531,7 @@ def serve_lead() -> Response:
         return jsonify({"ok": False, "error": "Too many requests"}), 429
     www_host, entry_url = LEAD_WWW.get(site.key, LEAD_WWW["motorinnofcarroll"])
     payload["_entry_url"] = entry_url
+    payload["_ai_host"] = site.ai_host
     upstream_payload = lead_upstream_payload(payload)
     upstream_payload["EntryUrl"] = entry_url
     try:
@@ -1984,7 +1987,7 @@ def mcp_call_tool(site: Site, name: str, arguments: dict[str, Any], profile: str
             "message": arguments.get("message", ""),
             "source": arguments.get("source", site.ai_host),
         }
-        return submit_lead(payload, site_key=site.key)
+        return submit_lead(payload, site_key=site.key, ai_host=site.ai_host)
     raise KeyError(name)
 
 
