@@ -18,6 +18,7 @@ In the AI client, add a remote MCP server, give it a name such as â€œMotor Inn,â
 - `list_locations`, `get_service_information`, and `get_parts_information` provide public dealership context.
 - `search_public_website` searches validated static website pages for dealership, contact, service, finance/trade, and policy information. It does not search dynamic inventory or offers.
 - `submit_lead` creates a lead. It requires name, email, phone, and source. It does not send customer emails.
+- The upstream contact-form system rejects emails with a plus sign.
 
 The inventory response preserves the existing public projection. `advertisedPrice.sourceField` identifies whether the selected amount came from `internet_price`, `list_price`, or `msrp`; the projection includes the configured documentation fee. Do not interpret every returned price as an unconditional cash offer. Confirm current terms and eligibility with the dealership. Availability text is taken from the public catalog. Freshness timestamps describe the S3 object delivery time and the public catalog's HTTP `Last-Modified` or retrieval time, not a verified supplier source-update time. The API returns source-basis fields alongside those timestamps.
 
