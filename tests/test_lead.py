@@ -11,7 +11,7 @@ class LeadRouteTests(unittest.TestCase):
         with patch("server.requests.get") as get:
             get.return_value.raise_for_status.return_value = None
             get.return_value.json.return_value = {"token": "test-token"}
-            self.assertEqual(server.lead_upstream_token(), "test-token")
+            self.assertEqual(server.lead_upstream_token("www.motorinnofcarroll.com"), "test-token")
             get.assert_called_once_with("https://www.motorinnofcarroll.com/api/lead/new", timeout=20)
 
     def test_lead_upstream_payload(self) -> None:

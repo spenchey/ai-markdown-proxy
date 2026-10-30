@@ -90,8 +90,15 @@ QUERY_RATE_WINDOW_SECONDS = 60.0
 QUERY_RATE_MAX_CLIENTS = 10_000
 LEAD_RATE_LIMIT = 10
 LEAD_RATE_WINDOW_SECONDS = 60.0
-LEAD_UPSTREAM_TOKEN_PATH = "https://www.motorinnofcarroll.com/api/lead/new"
-LEAD_UPSTREAM_SAVE_PATH = "https://www.motorinnofcarroll.com/api/lead/save"
+LEAD_UPSTREAM_TOKEN_PATH = "https://{www}/api/lead/new"
+LEAD_UPSTREAM_SAVE_PATH = "https://{www}/api/lead/save"
+LEAD_WWW = {
+    "motorinnofcarroll": ("www.motorinnofcarroll.com", "https://www.motorinnofcarroll.com/contactus.aspx"),
+    "motorinnautogroup": ("www.motorinnautogroup.com", "https://www.motorinnautogroup.com/contactus.html"),
+    "motorinntoyotaofcarroll": ("www.motorinntoyotaofcarroll.com", "https://www.motorinntoyotaofcarroll.com/contactus.html"),
+}
+LEAD_WWW.setdefault("motorinnofcarroll", LEAD_WWW["motorinnofcarroll"])
+
 
 logger = logging.getLogger("ai-markdown-proxy")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -443,8 +450,8 @@ def lead_rate_limit_allowed(client_key: str, now: float | None = None) -> bool:
         return True
 
 
-def lead_upstream_token() -> str:
-    response = requests.get(LEAD_UPSTREAM_TOKEN_PATH, timeout=20)
+def lead_upstream_token(www_host: str) -> str:
+    response = requests.get(LEAD_UPSTREAM_TOKEN_PATH.format(www=www_host), timeout=20)
     response.raise_for_status()
     token = response.json()["token"]
     if not token:
@@ -452,7 +459,7 @@ def lead_upstream_token() -> str:
     return token
 
 
-def lead_upstream_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def lead_upstream_payload(payload: dict[str, Any], entry_url: str = "https://www.motorinnofcarroll.com/contactus.aspx") -> dict[str, Any]:
     name = str(payload.get("name", "")).strip()
     if " " in name:
         first_name, last_name = name.split(" ", 1)
@@ -462,7 +469,7 @@ def lead_upstream_payload(payload: dict[str, Any]) -> dict[str, Any]:
     source = str(payload.get("source", "")).strip() or "AI Agent"
     comments = f"AI Agent ({source}) | {message}" if message else f"AI Agent ({source})"
     return {
-        "EntryUrl": "https://www.motorinnofcarroll.com/contactus.aspx",
+        "EntryUrl": entry_url,
         "LeadSource": 32,
         "LeadType": "9",
         "FirstName": first_name,
@@ -480,16 +487,17 @@ def lead_upstream_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def submit_lead(arguments: dict[str, Any]) -> dict[str, Any]:
+def submit_lead(arguments: dict[str, Any], site_key: str = "motorinnofcarroll") -> dict[str, Any]:
     """Submit a lead through the same upstream field mapping."""
     source = arguments.pop("source", None) or "AI Agent"
     payload = dict(arguments)
     payload["source"] = source
     try:
-        token = lead_upstream_token()
+        www_host, entry_url = LEAD_WWW.get(site_key, LEAD_WWW["motorinnofcarroll"])
+        token = lead_upstream_token(www_host)
         response = requests.post(
-            f"{LEAD_UPSTREAM_SAVE_PATH}/{token}",
-            json=lead_upstream_payload(payload),
+            LEAD_UPSTREAM_SAVE_PATH.format(www=www_host) + f"/{token}",
+            json=lead_upstream_payload(payload, entry_url),
             headers={
                 "Content-Type": "application/json; charset=utf-8",
                 "Accept": "application/json",
@@ -509,6 +517,7 @@ def submit_lead(arguments: dict[str, Any]) -> dict[str, Any]:
 @app.route("/lead", methods=["POST"])
 @app.route("/api/v1/lead", methods=["POST"])
 def serve_lead() -> Response:
+    site = resolve_site()
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({"ok": False, "error": "JSON object required"}), 400
@@ -518,11 +527,14 @@ def serve_lead() -> Response:
     client_key = request_client_key()
     if not lead_rate_limit_allowed(client_key):
         return jsonify({"ok": False, "error": "Too many requests"}), 429
+    www_host, entry_url = LEAD_WWW.get(site.key, LEAD_WWW["motorinnofcarroll"])
+    payload["_entry_url"] = entry_url
     upstream_payload = lead_upstream_payload(payload)
+    upstream_payload["EntryUrl"] = entry_url
     try:
-        token = lead_upstream_token()
+        token = lead_upstream_token(www_host)
         response = requests.post(
-            f"{LEAD_UPSTREAM_SAVE_PATH}/{token}",
+            LEAD_UPSTREAM_SAVE_PATH.format(www=www_host) + f"/{token}",
             json=upstream_payload,
             headers={
                 "Content-Type": "application/json; charset=utf-8",
@@ -1972,7 +1984,7 @@ def mcp_call_tool(site: Site, name: str, arguments: dict[str, Any], profile: str
             "message": arguments.get("message", ""),
             "source": arguments.get("source", site.ai_host),
         }
-        return submit_lead(payload)
+        return submit_lead(payload, site_key=site.key)
     raise KeyError(name)
 
 
