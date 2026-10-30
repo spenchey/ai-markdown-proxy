@@ -1292,7 +1292,7 @@ Sitemap: https://{site.ai_host}/sitemap.xml
 
 # Per RFC 9493: allow search, allow use with training, disallow modification.
 # This is a preference signal, not an enforcement mechanism.
-Content-Signal: no-ai, no-ai-train
+Content-Signal: ai-train=no, search=yes, ai-input=no
 """
 
 
@@ -2016,7 +2016,12 @@ def root() -> Response:
     if "text/markdown" not in request.headers.get("Accept", ""):
         response = Response(discovery_html(site), content_type="text/html; charset=utf-8")
         response.headers["Cache-Control"] = "public, max-age=3600"
-        response.headers["Link"] = f'<{site.base_url}>; rel="canonical"'
+        response.headers["Link"] = (
+            f'<{site.base_url}>; rel="canonical", '
+            f'<https://{site.ai_host}/api>; rel="api-catalog", '
+            f'<https://{site.ai_host}/openapi.json>; rel="service-desc", '
+            f'<https://{site.ai_host}/skills.txt>; rel="service-doc"'
+        )
         response.headers["X-Robots-Tag"] = "noindex, follow"
         return response
     key = hashlib.sha256(f"{site.key}|{site.base_url}".encode()).hexdigest()
