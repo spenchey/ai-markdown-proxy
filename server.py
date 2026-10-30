@@ -482,6 +482,7 @@ def lead_upstream_payload(payload: dict[str, Any], entry_url: str = "https://www
         "GetBotDocUrl": False,
         "DisplayType": "in-page",
         "HoneypotFields": json.dumps({"fax_number": "", "address_line3": "", "ui_state": ""}),
+        "LeadSourceName": f"AI-MIRROR:{payload.get("_ai_host", "unknown")}",
         "Browser": "AI Agent Client",
         "OS": "unknown",
         "Device": "unknown",
