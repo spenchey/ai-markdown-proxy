@@ -22,7 +22,7 @@ class LinkTests(unittest.TestCase):
     def test_each_host_serves_a_plain_links_index(self) -> None:
         for site in server.SITES.values():
             with self.subTest(site=site.key):
-                response = self.client.get(f"/links/{site.key}.html", headers={"Host": site.ai_host})
+                response = self.client.get(f"/links/{site.content_slug}.html", headers={"Host": site.ai_host})
                 self.assertEqual(response.status_code, 200)
                 self.assertTrue(response.content_type.startswith("text/html"))
                 self.assertIn(response.headers["Cache-Control"], "public, max-age=3600")

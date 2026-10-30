@@ -2157,11 +2157,11 @@ def gbp_review_operations() -> Response:
     return response
 
 
-@app.route("/links/<path:site_key>.html")
-def serve_links_index(site_key: str) -> Response:
-    if site_key not in SITES:
+@app.route("/links/<path:site_slug>.html")
+def serve_links_index(site_slug: str) -> Response:
+    site = next((candidate for candidate in SITES.values() if candidate.content_slug == site_slug), None)
+    if site is None:
         return Response("Not found\n", status=404, content_type="text/plain; charset=utf-8")
-    site = SITES[site_key]
     response = Response(related_links_page(site), content_type="text/html; charset=utf-8")
     response.headers["Cache-Control"] = "public, max-age=3600"
     response.headers["X-Robots-Tag"] = "noindex, follow"
