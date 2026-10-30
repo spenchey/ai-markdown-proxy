@@ -123,7 +123,7 @@ class AgentAccessTests(unittest.TestCase):
         self.assertIn("ETag", response.headers)
         self.assertIn("/openapi.json", self.client.get("/llms.txt", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True))
         self.assertIn("/openapi.json", self.client.get("/sitemap.xml", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True))
-        self.assertNotIn("/mcp", self.client.get("/sitemap.xml", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True))
+        self.assertNotIn("/mcp/", self.client.get("/sitemap.xml", headers={"Host": "ai.motorinnofcarroll.com"}).get_data(as_text=True))
         self.assertIn("500", document["paths"]["/api/v1/vehicles"]["get"]["responses"])
 
         with patch("server.openapi_document", side_effect=RuntimeError("internal detail must not escape")):

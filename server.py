@@ -155,6 +155,11 @@ DISCOVERY_PATHS = (
     "/service-scheduler",
     "/mcp",
     "/mcp/customer",
+    "/api",
+    "/ai.txt",
+    "/skills.txt",
+    "/.well-known/agents.json",
+    "/.well-known/mcp.json",
 )
 AGENT_QUERY_EXAMPLES = (
     "/llms?query=service&limit=3",
@@ -179,6 +184,96 @@ _catalog_cache: dict[str, Any] = {}
 _inventory_cache: dict[str, Any] = {}
 _query_rate_limits: dict[str, deque[float]] = {}
 _query_rate_lock = threading.Lock()
+
+
+GBP_NAP = {
+    "motorinnautogroup": {
+        "name": "Motor Inn Toyota and Chevrolet of Carroll",
+        "streetAddress": "1526 Le Clark Rd",
+        "addressLocality": "Carroll",
+        "addressRegion": "IA",
+        "postalCode": "51401",
+        "addressCountry": "US",
+        "telephone": "+17127925000",
+    },
+    "motorinnchevy": {
+        "name": "Motor Inn Chevrolet of Carroll",
+        "streetAddress": "1526 Le Clark Rd",
+        "addressLocality": "Carroll",
+        "addressRegion": "IA",
+        "postalCode": "51401",
+        "addressCountry": "US",
+        "telephone": "+17128827802",
+    },
+    "motorinntoyota": {
+        "name": "Motor Inn Toyota and Chevrolet of Carroll",
+        "streetAddress": "1526 Le Clark Rd",
+        "addressLocality": "Carroll",
+        "addressRegion": "IA",
+        "postalCode": "51401",
+        "addressCountry": "US",
+        "telephone": "+17127925000",
+    },
+}
+AGENT_READY_SCHEMA_VERSION = "v1"
+AGENT_FLOWS = (
+    {"name": "search-vehicles", "title": "Find vehicles", "openApiOperationId": "searchVehicles"},
+    {"name": "get-vehicle", "title": "Get a vehicle", "openApiOperationId": "getVehicle"},
+    {"name": "list-locations", "title": "List locations", "openApiOperationId": "listLocations"},
+    {"name": "get-service-information", "title": "Get service information", "openApiOperationId": "getServiceInformation"},
+    {"name": "get-parts-information", "title": "Get parts information", "openApiOperationId": "getPartsInformation"},
+)
+AGENT_NAMES = tuple(flow["name"] for flow in AGENT_FLOWS)
+DEALERON_MCP_SERVER_VERSION = "2026-10-29"
+DEALERON_MCP_ENDPOINT = "/mcp"
+
+
+def local_business_schema(site: Site) -> dict[str, Any]:
+    nap = GBP_NAP[site.key]
+    return {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "@id": urljoin(site.base_url.rstrip("/") + "/", "#storefront"),
+        "name": nap["name"],
+        "telephone": nap["telephone"],
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": nap["streetAddress"],
+            "addressLocality": nap["addressLocality"],
+            "addressRegion": nap["addressRegion"],
+            "postalCode": nap["postalCode"],
+            "addressCountry": nap["addressCountry"],
+        },
+    }
+
+
+def agents_json(site: Site) -> dict[str, Any]:
+    base = f"https://{site.ai_host}"
+    return {
+        "$schema": "https://agents.spec.dev/S20251227/v1.json",
+        "name": "Motor Inn Auto Group Agent Access",
+        "description": f"Read-only public dealership API for {site.base_url}.",
+        "version": "2026-10-29",
+        "homePageUrl": site.base_url,
+        "apiBaseUrl": base,
+        "auth": "none",
+        "capabilities": AGENT_NAMES,
+        "flows": AGENT_FLOWS,
+        "specUrl": f"{base}/openapi.json",
+        "mcpBaseUrl": base,
+    }
+
+
+def mcp_server_card(site: Site) -> dict[str, Any]:
+    return {
+        "$schema": "https://spec.openapis.org/arap/mcp-server-card/v1.0.0",
+        "name": site.name,
+        "version": DEALERON_MCP_SERVER_VERSION,
+        "description": "Read-only dealership information tools. It never transacts.",
+        "servers": "https://server.modelcontextprotocol.io",
+        "remotes": [{"url": f"https://{site.ai_host}{DEALERON_MCP_ENDPOINT}", "transport": "streamable-http"}],
+        "auth": "none",
+    }
 
 
 class SourceUnavailable(RuntimeError):
@@ -1005,6 +1100,9 @@ def sitemap_xml(site: Site) -> str:
 
 
 def discovery_html(site: Site) -> str:
+    nap = GBP_NAP[site.key]
+    nap_line = f'{nap["name"]} · {nap["streetAddress"]}, {nap["addressLocality"]}, {nap["addressRegion"]} {nap["postalCode"]} · <a href="tel:{nap["telephone"]}">{nap["telephone"]}</a>'
+    business_json = json.dumps(local_business_schema(site), indent=2)
     links = "\n".join(
         f'        <li><a href="{html.escape(path)}">{html.escape(path)}</a></li>'
         for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
@@ -1029,6 +1127,12 @@ def discovery_html(site: Site) -> str:
         <li><a href="/sitemap.xml">/sitemap.xml</a></li>
       </ul>
     </main>
+    <footer>
+      <address>{nap_line}</address>
+      <script type="application/ld+json">
+      {business_json}
+      </script>
+    </footer>
   </body>
 </html>
 """
@@ -1059,6 +1163,106 @@ def gbp_review_operations_html() -> str:
 """
 
 
+def ai_txt(site: Site) -> str:
+    nap = GBP_NAP[site.key]
+    lines = [
+        f"# {site.name} - AI-readable site index",
+        "",
+        "> This site exists to provide source-backed read-only data for AI agents. It is not a Google ranking shortcut.",
+        "",
+        "## Capabilities",
+        "- Vehicles: search and get VIN details through the read-only API.",
+        "- Locations: one Carroll storefront with brand-specific contact resources.",
+        "- Service information: current public service journey. It never creates an appointment.",
+        "- Parts information: current parts request journey. It never creates an order.",
+        "- Static contact and hours source: `/contact-hours.md`.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def skills_txt(site: Site) -> str:
+    rows = [
+        ("search inventory", "/api/v1/vehicles", "GET"),
+        ("get one vehicle by VIN", "/api/v1/vehicles/{vin}", "GET"),
+        ("get dealership location", "/api/v1/locations", "GET"),
+        ("get service information", "/api/v1/service-information", "GET"),
+        ("get parts information", "/api/v1/parts-information", "GET"),
+    ]
+    lines = [
+        f"# {site.name} - Skills",
+        "",
+        "> Actions are read-only. They do not make appointments or orders.",
+        "",
+        "| Skill | Path | Method |",
+        "|---|---|---|",
+    ]
+    lines.extend(f"| {skill} | `{path}` | {method} |" for skill, path, method in rows)
+    return "\n".join(lines) + "\n"
+
+
+def api_catalog(site: Site) -> dict[str, Any]:
+    nap = GBP_NAP[site.key]
+    return {
+        "schema": "motorinn.apiCatalog.v1",
+        "site": {
+            "key": site.key,
+            "name": nap["name"],
+            "host": site.ai_host,
+            "canonicalUrl": site.base_url,
+        },
+        "agent": {
+            "openapiUrl": f"https://{site.ai_host}/openapi.json",
+            "mcpUrl": f"https://{site.ai_host}/mcp",
+            "agentsUrl": f"https://{site.ai_host}/.well-known/agents.json",
+            "mcpcardUrl": f"https://{site.ai_host}/.well-known/mcp.json",
+            "aiCatalog": f"https://{site.ai_host}/ai.txt",
+            "skillsIndex": f"https://{site.ai_host}/skills.txt",
+            "humanSite": site.base_url,
+            "contactPage": urljoin(site.base_url.rstrip("/") + "/", "contactus.aspx"),
+        },
+        "actions": {
+            "search_vehicles": {
+                "path": "/api/v1/vehicles",
+                "method": "GET",
+                "docsOpenapiOperationId": "searchVehicles",
+            },
+            "get_vehicle": {
+                "path": "/api/v1/vehicles/{vin}",
+                "method": "GET",
+                "docsOpenapiOperationId": "getVehicle",
+            },
+            "list_locations": {
+                "path": "/api/v1/locations",
+                "method": "GET",
+                "docsOpenapiOperationId": "listLocations",
+            },
+            "get_service_information": {
+                "path": "/api/v1/service-information",
+                "method": "GET",
+                "docsOpenapiOperationId": "getServiceInformation",
+            },
+            "get_parts_information": {
+                "path": "/api/v1/parts-information",
+                "method": "GET",
+                "docsOpenapiOperationId": "getPartsInformation",
+            },
+        },
+        "business": {
+            "@type": "LocalBusiness",
+            "name": nap["name"],
+            "telephone": nap["telephone"],
+            "address": {
+                "@type": "PostalAddress",
+                "streetAddress": nap["streetAddress"],
+                "addressLocality": nap["addressLocality"],
+                "addressRegion": nap["addressRegion"],
+                "postalCode": nap["postalCode"],
+                "addressCountry": nap["addressCountry"],
+            },
+        },
+    }
+
+
 def robots_txt(site: Site) -> str:
     training_policy = "Allow: /" if ALLOW_TRAINING_CRAWLERS else "Disallow: /"
     return f"""User-agent: *
@@ -1085,6 +1289,10 @@ User-agent: Google-Extended
 {training_policy}
 
 Sitemap: https://{site.ai_host}/sitemap.xml
+
+# Per RFC 9493: allow search, allow use with training, disallow modification.
+# This is a preference signal, not an enforcement mechanism.
+Content-Signal: no-ai, no-ai-train
 """
 
 
@@ -1654,6 +1862,34 @@ def full_health() -> Response:
 @app.route("/__cache")
 def cache_stats() -> Response:
     return jsonify({"pageEntries": len(_page_cache), "catalogCached": bool(_catalog_cache), "inventoryCached": bool(_inventory_cache)})
+
+
+@app.route("/ai.txt")
+def serve_ai_txt() -> Response:
+    return text_response(ai_txt(resolve_site()), max_age=3600)
+
+
+@app.route("/skills.txt")
+def serve_skills_txt() -> Response:
+    return text_response(skills_txt(resolve_site()), max_age=3600)
+
+
+@app.route("/.well-known/agents.json")
+def serve_agents_json() -> Response:
+    return api_response(agents_json(resolve_site()), cache_seconds=3600)
+
+
+@app.route("/.well-known/mcp.json")
+def serve_mcp_server_card() -> Response:
+    return api_response(mcp_server_card(resolve_site()), cache_seconds=3600)
+
+
+@app.route("/api")
+def serve_api_catalog() -> Response:
+    site = resolve_site()
+    response = api_response(api_catalog(site), cache_seconds=3600)
+    response.headers["Link"] = f'<{urljoin("https://" + site.ai_host, "/api")}>; rel="service"'
+    return response
 
 
 @app.route("/robots.txt")
