@@ -1263,6 +1263,20 @@ def api_catalog(site: Site) -> dict[str, Any]:
     }
 
 
+def api_catalog_linkset(site: Site) -> dict[str, Any]:
+    base = f"https://{site.ai_host}"
+    return {
+        "linkset": [
+            {
+                "anchor": f"{base}/api",
+                "service-desc": {"href": f"{base}/openapi.json"},
+                "service-doc": {"href": f"{base}/api"},
+                "status": {"href": f"{base}/__health"},
+            }
+        ]
+    }
+
+
 def robots_txt(site: Site) -> str:
     training_policy = "Allow: /" if ALLOW_TRAINING_CRAWLERS else "Disallow: /"
     return f"""User-agent: *
@@ -1884,6 +1898,13 @@ def serve_mcp_server_card() -> Response:
     return api_response(mcp_server_card(resolve_site()), cache_seconds=3600)
 
 
+@app.route("/.well-known/api-catalog")
+def serve_api_catalog_linkset() -> Response:
+    response = api_response(api_catalog_linkset(resolve_site()), cache_seconds=3600)
+    response.headers["Content-Type"] = "application/linkset+json"
+    return response
+
+
 @app.route("/api")
 def serve_api_catalog() -> Response:
     site = resolve_site()
@@ -2020,7 +2041,8 @@ def root() -> Response:
             f'<{site.base_url}>; rel="canonical", '
             f'<https://{site.ai_host}/api>; rel="api-catalog", '
             f'<https://{site.ai_host}/openapi.json>; rel="service-desc", '
-            f'<https://{site.ai_host}/skills.txt>; rel="service-doc"'
+            f'<https://{site.ai_host}/skills.txt>; rel="service-doc", '
+            f'<https://{site.ai_host}/ai.txt>; rel="describedby"'
         )
         response.headers["X-Robots-Tag"] = "noindex, follow"
         return response
