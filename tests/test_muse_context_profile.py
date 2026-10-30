@@ -89,7 +89,15 @@ class MuseContextProfileTests(unittest.TestCase):
         self.assertNotIn("search_public_website", {tool["name"] for tool in default})
         self.assertEqual(
             {tool["name"] for tool in customer},
-            {"search_vehicles", "get_vehicle", "list_locations", "get_service_information", "get_parts_information", "search_public_website"},
+            {
+                "search_vehicles",
+                "get_vehicle",
+                "list_locations",
+                "get_service_information",
+                "get_parts_information",
+                "search_public_website",
+                "submit_lead",
+            },
         )
         by_name = {tool["name"]: tool for tool in customer}
         self.assertTrue(by_name["search_vehicles"]["annotations"]["openWorldHint"])
@@ -132,7 +140,7 @@ class MuseContextProfileTests(unittest.TestCase):
         )
         self.assertEqual(unsupported.get_json()["result"]["protocolVersion"], "2025-11-25")
         self.assertTrue(all("tools" in response.get_json()["result"]["capabilities"] for response in initialize_responses.values()))
-        self.assertTrue(all(tool["annotations"]["readOnlyHint"] for tool in listed))
+        self.assertTrue(all(tool["name"] == "submit_lead" or tool["annotations"]["readOnlyHint"] for tool in listed))
         self.assertEqual(inventory["structuredContent"]["schema"], "motorinn.vehicleSearch.v1")
         self.assertEqual(context["structuredContent"]["resultCount"] > 0, True)
         self.assertTrue(all(result["sourceType"] == "static" for result in context["structuredContent"]["results"]))

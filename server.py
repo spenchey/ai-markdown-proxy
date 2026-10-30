@@ -16,6 +16,7 @@ import re
 import threading
 import time
 import unicodedata
+import uuid
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -87,6 +88,10 @@ QUERY_DEFAULT_RESULTS = 5
 QUERY_RATE_LIMIT = 60
 QUERY_RATE_WINDOW_SECONDS = 60.0
 QUERY_RATE_MAX_CLIENTS = 10_000
+LEAD_RATE_LIMIT = 10
+LEAD_RATE_WINDOW_SECONDS = 60.0
+LEAD_UPSTREAM_TOKEN_PATH = "https://www.motorinnofcarroll.com/api/lead/new"
+LEAD_UPSTREAM_SAVE_PATH = "https://www.motorinnofcarroll.com/api/lead/save"
 
 logger = logging.getLogger("ai-markdown-proxy")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -197,6 +202,8 @@ _catalog_cache: dict[str, Any] = {}
 _inventory_cache: dict[str, Any] = {}
 _query_rate_limits: dict[str, deque[float]] = {}
 _query_rate_lock = threading.Lock()
+_lead_rate_limits: dict[str, deque[float]] = {}
+_lead_rate_lock = threading.Lock()
 
 
 GBP_NAP = {
@@ -421,6 +428,163 @@ def request_client_key() -> str:
         return str(ipaddress.ip_address(candidate))
     except ValueError:
         return "unknown"
+
+
+def lead_rate_limit_allowed(client_key: str, now: float | None = None) -> bool:
+    current = time.monotonic() if now is None else now
+    cutoff = current - LEAD_RATE_WINDOW_SECONDS
+    with _lead_rate_lock:
+        events = _lead_rate_limits.setdefault(client_key, deque())
+        while events and events[0] <= cutoff:
+            events.popleft()
+        if len(events) >= LEAD_RATE_LIMIT:
+            return False
+        events.append(current)
+        return True
+
+
+def lead_upstream_token() -> str:
+    response = requests.get(LEAD_UPSTREAM_TOKEN_PATH, timeout=20)
+    response.raise_for_status()
+    token = response.json()["token"]
+    if not token:
+        raise RuntimeError("upstream lead token missing")
+    return token
+
+
+def lead_upstream_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    name = str(payload.get("name", "")).strip()
+    if " " in name:
+        first_name, last_name = name.split(" ", 1)
+    else:
+        first_name, last_name = name, ""
+    message = str(payload.get("message", "")).strip()
+    source = str(payload.get("source", "")).strip() or "AI Agent"
+    comments = f"AI Agent ({source}) | {message}" if message else f"AI Agent ({source})"
+    return {
+        "EntryUrl": "https://www.motorinnofcarroll.com/contactus.aspx",
+        "LeadSource": 32,
+        "LeadType": "9",
+        "FirstName": first_name,
+        "LastName": last_name,
+        "Email": str(payload.get("email", "")).strip(),
+        "Phone": str(payload.get("phone", "")).strip(),
+        "Comments": comments,
+        "IsPlatformForm": True,
+        "GetBotDocUrl": False,
+        "DisplayType": "in-page",
+        "HoneypotFields": json.dumps({"fax_number": "", "address_line3": "", "ui_state": ""}),
+        "Browser": "AI Agent Client",
+        "OS": "unknown",
+        "Device": "unknown",
+    }
+
+
+def submit_lead(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Submit a lead through the same upstream field mapping."""
+    source = arguments.pop("source", None) or "AI Agent"
+    payload = dict(arguments)
+    payload["source"] = source
+    try:
+        token = lead_upstream_token()
+        response = requests.post(
+            f"{LEAD_UPSTREAM_SAVE_PATH}/{token}",
+            json=lead_upstream_payload(payload),
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+                "User-Agent": "MotorInn-AIReadableMirror/2.0 (+https://ai.motorinnofcarroll.com/llms.txt)",
+            },
+            timeout=20,
+        )
+        upstream_body = response.json()
+    except requests.RequestException:
+        return {"submitted": False, "reason": "Lead source unavailable"}
+    reference = upstream_body.get("internalId") or upstream_body.get("leadId")
+    if not reference:
+        reference = str(uuid.uuid4())
+    return {"submitted": True, "ref": str(reference), "leadSource": upstream_body.get("leadSource")}
+
+
+@app.route("/lead", methods=["POST"])
+@app.route("/api/v1/lead", methods=["POST"])
+def serve_lead() -> Response:
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "JSON object required"}), 400
+    required = ("name", "email", "phone", "source")
+    if any(not str(payload.get(key, "")).strip() for key in required):
+        return jsonify({"ok": False, "error": "Missing required fields"}), 400
+    client_key = request_client_key()
+    if not lead_rate_limit_allowed(client_key):
+        return jsonify({"ok": False, "error": "Too many requests"}), 429
+    upstream_payload = lead_upstream_payload(payload)
+    try:
+        token = lead_upstream_token()
+        response = requests.post(
+            f"{LEAD_UPSTREAM_SAVE_PATH}/{token}",
+            json=upstream_payload,
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+                "User-Agent": "MotorInn-AIReadableMirror/2.0 (+https://ai.motorinnofcarroll.com/llms.txt)",
+            },
+            timeout=20,
+        )
+        upstream_body = response.json()
+    except requests.RequestException:
+        logger.exception("lead upstream request failed")
+        return jsonify({"ok": False, "error": "Lead source unavailable"}), 503
+    if response.status_code >= 400:
+        return jsonify({
+            "ok": False,
+            "error": "Lead source rejected the request",
+            "status": response.status_code,
+            "upstream": upstream_body,
+        }), response.status_code
+    reference = upstream_body.get("internalId") or upstream_body.get("internal_id")
+    if not reference:
+        reference = upstream_body.get("leadId")
+    if not reference:
+        reference = str(uuid.uuid4())
+    return jsonify({"ok": True, "ref": str(reference), "upstream": upstream_body}), 200
+
+
+def submit_lead_tool(profile: str = "default") -> dict[str, Any]:
+    """Return the MCP tool definition for lead submission."""
+    return {
+        "name": "submit_lead",
+        "title": "Submit a customer lead",
+        "description": "Create a lead for this dealership. This is the only write action available here.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["name", "email", "phone", "source"],
+            "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 120},
+                "email": {"type": "string", "minLength": 5, "maxLength": 160},
+                "phone": {"type": "string", "minLength": 7, "maxLength": 32},
+                "vehicle": {"type": "string", "maxLength": 200},
+                "message": {"type": "string", "maxLength": 2000},
+                "source": {"type": "string", "minLength": 1, "maxLength": 120},
+            },
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "required": ["ok", "ref"],
+            "properties": {
+                "ok": {"type": "boolean", "const": True},
+                "ref": {"type": "string", "minLength": 1},
+            },
+            "additionalProperties": False,
+        },
+        "annotations": {
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": False,
+            "openWorldHint": True,
+        },
+    }
 
 
 def query_rate_limit_allowed(client_key: str, now: float | None = None) -> bool:
@@ -1336,6 +1500,7 @@ def skills_txt(site: Site) -> str:
         ("get dealership location", "/api/v1/locations", "GET"),
         ("get service information", "/api/v1/service-information", "GET"),
         ("get parts information", "/api/v1/parts-information", "GET"),
+        ("submit a lead", "/api/v1/lead", "POST"),
     ]
     lines = [
         f"# {site.name} - Skills",
@@ -1370,6 +1535,11 @@ def api_catalog(site: Site) -> dict[str, Any]:
             "contactPage": urljoin(site.base_url.rstrip("/") + "/", "contactus.aspx"),
         },
         "actions": {
+            "submit_lead": {
+                "path": "/lead",
+                "method": "POST",
+                "docsOpenapiOperationId": "submitLead",
+            },
             "search_vehicles": {
                 "path": "/api/v1/vehicles",
                 "method": "GET",
@@ -1632,6 +1802,39 @@ def mcp_tools(profile: str = "default") -> list[dict[str, Any]]:
             "annotations": read_annotations,
         },
     ]
+    submit_lead_tool = {
+        "name": "submit_lead",
+        "title": "Submit a customer lead",
+        "description": "Create a lead for this dealership. This is the only write action available here.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["name", "email", "phone", "source"],
+            "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 120},
+                "email": {"type": "string", "minLength": 5, "maxLength": 160},
+                "phone": {"type": "string", "minLength": 7, "maxLength": 32},
+                "vehicle": {"type": "string", "maxLength": 200},
+                "message": {"type": "string", "maxLength": 2000},
+                "source": {"type": "string", "minLength": 1, "maxLength": 120},
+            },
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "required": ["ok", "ref"],
+            "properties": {
+                "ok": {"type": "boolean", "const": True},
+                "ref": {"type": "string", "minLength": 1},
+            },
+            "additionalProperties": False,
+        },
+        "annotations": {
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": False,
+            "openWorldHint": True,
+        },
+    }
     if profile == "default":
         return tools
     if profile not in {"context-only", "customer"}:
@@ -1693,6 +1896,8 @@ def mcp_tools(profile: str = "default") -> list[dict[str, Any]]:
     context_tools = [tool for tool in tools if tool["name"] in context_names] + [context_tool]
     if profile == "context-only":
         return context_tools
+    if profile == "customer":
+                return tools + [context_tool, submit_lead_tool]
     return tools + [context_tool]
 
 
@@ -1758,6 +1963,16 @@ def mcp_call_tool(site: Site, name: str, arguments: dict[str, Any], profile: str
         if arguments:
             raise agent_access.InvalidRequest("get_parts_information does not accept arguments")
         return agent_access.parts_information(site)
+    if name == "submit_lead":
+        payload = {
+            "name": arguments["name"],
+            "email": arguments["email"],
+            "phone": arguments["phone"],
+            "vehicle": arguments.get("vehicle"),
+            "message": arguments.get("message", ""),
+            "source": arguments.get("source", site.ai_host),
+        }
+        return submit_lead(payload)
     raise KeyError(name)
 
 

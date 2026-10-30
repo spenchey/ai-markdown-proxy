@@ -1,0 +1,50 @@
+{
+  "source": "https://www.motorinnofcarroll.com/contactus.aspx",
+  "form": "ContactUsForm",
+  "entryPoint": {
+    "token": {
+      "method": "GET",
+      "path": "/api/lead/new",
+      "responseFields": ["token"]
+    }
+  },
+  "save": {
+    "method": "POST",
+    "path": "/api/lead/save/{token}",
+    "contentType": "application/json; charset=utf-8"
+  },
+  "mapping": {
+    "name": "FirstName and LastName",
+    "email": "Email",
+    "phone": "Phone",
+    "message": "Comments",
+    "source": "LeadSource 32 (Website - Contact Us)"
+  },
+  "upstreamFields": [
+    "EntryUrl",
+    "LeadSource",
+    "LeadType",
+    "FirstName",
+    "LastName",
+    "Email",
+    "Phone",
+    "Comments",
+    "IsPlatformForm",
+    "GetBotDocUrl",
+    "DisplayType",
+    "HoneypotFields",
+    "Browser",
+    "OS",
+    "Device"
+  ],
+  "observedSuccess": {
+    "status": 200,
+    "leadId": 58445811,
+    "internalId": "6c8b4c41-dc78-475a-a4b9-d7aef6eff533",
+    "leadSource": "Website - Contact Us"
+  },
+  "observedFailure": {
+    "status": 400,
+    "email": "Emails with + are rejected upstream"
+  }
+}
