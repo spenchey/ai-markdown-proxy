@@ -84,9 +84,9 @@ class MuseContextProfileTests(unittest.TestCase):
         )
         self.assertEqual(
             {tool["name"] for tool in default},
-            {"search_vehicles", "get_vehicle", "list_locations", "get_service_information", "get_parts_information"},
+            {"search_vehicles", "get_vehicle", "list_locations", "get_service_information", "get_parts_information", "search_public_website", "submit_lead"},
         )
-        self.assertNotIn("search_public_website", {tool["name"] for tool in default})
+        self.assertIn("search_public_website", {tool["name"] for tool in default})
         self.assertEqual(
             {tool["name"] for tool in customer},
             {

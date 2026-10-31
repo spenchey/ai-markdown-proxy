@@ -642,10 +642,11 @@ class AgentAccessTests(unittest.TestCase):
 
         self.assertEqual(initialize.status_code, 200)
         self.assertEqual(initialize.get_json()["result"]["protocolVersion"], "2025-11-25")
-        self.assertEqual(names, {"search_vehicles", "get_vehicle", "list_locations", "get_service_information", "get_parts_information"})
-        self.assertTrue(all(tool["annotations"]["readOnlyHint"] for tool in listed.get_json()["result"]["tools"]))
+        self.assertEqual(names, {"search_vehicles", "get_vehicle", "list_locations", "get_service_information", "get_parts_information", "search_public_website", "submit_lead"})
         self.assertTrue(all("outputSchema" in tool for tool in listed.get_json()["result"]["tools"]))
         definitions = {tool["name"]: tool for tool in listed.get_json()["result"]["tools"]}
+        read_tools = {name for name in names if name != "submit_lead"}
+        self.assertTrue(all(definitions[name]["annotations"]["readOnlyHint"] for name in read_tools))
         self.assertEqual(definitions["search_vehicles"]["inputSchema"]["properties"]["query"]["minLength"], 1)
 
         catalog, inventory = self.inventory_sources()

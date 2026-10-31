@@ -253,6 +253,89 @@ AGENT_FLOWS = (
 AGENT_NAMES = tuple(flow["name"] for flow in AGENT_FLOWS)
 DEALERON_MCP_SERVER_VERSION = "2026-10-29"
 DEALERON_MCP_ENDPOINT = "/mcp"
+MCP_SERVER_INSTRUCTIONS = (
+    "Use Motor Inn tools only for the dealership on this host. Use search_vehicles to find public inventory and get_vehicle only with an exact VIN from search_vehicles. Use list_locations for hours and contacts. Use get_service_information for service capability and its public next step. Use get_parts_information for parts capability only. Do not claim vehicle reservations, purchases, financing approvals, service bookings, part stock, fitment, or orders. Use search_public_website for validated policy and site pages. Use submit_lead only when the user asks for contact and supplies name, email, phone, and source; each submission creates a new lead and is not idempotent."
+)
+ASSETS_ROOT = Path(__file__).resolve().parent / "assets"
+DEALER_PRIVACY_URLS = {
+    "motorinnautogroup": "https://www.motorinnautogroup.com/privacy-policy",
+    "motorinnchevy": "https://www.motorinnofcarroll.com/privacy.aspx",
+    "motorinntoyota": "https://www.motorinntoyotaofcarroll.com/privacy.aspx",
+}
+
+
+def google_verification_tokens(site: Site) -> tuple[str, ...]:
+    """Return the configured Google verification token for this site."""
+
+    raw = os.environ.get("GOOGLE_SITE_VERIFICATION", "").strip()
+    if not raw:
+        return ()
+    if raw.startswith("{"):
+        try:
+            configured = json.loads(raw)
+        except json.JSONDecodeError:
+            return ()
+        if not isinstance(configured, dict):
+            return ()
+        value = configured.get(site.ai_host, configured.get("*"))
+        return (value.strip(),) if isinstance(value, str) and value.strip() else ()
+    return (raw,)
+
+
+def google_connected_apps_certificate(site: Site) -> dict[str, Any]:
+    return {"verification_tokens": list(google_verification_tokens(site))}
+
+
+def connected_app_page(site: Site, title: str, body_html: str) -> Response:
+    nap = GBP_NAP[site.key]
+    customer_name = html.escape(nap["name"])
+    address_line = html.escape(f"{nap['streetAddress']}, {nap['addressLocality']}, {nap['addressRegion']} {nap['postalCode']}")
+    customer_website = html.escape(site.base_url)
+    if title == "Privacy policy":
+        body_html = f"""<h1>Privacy policy</h1>
+          <p>This service does not require an account or login. It uses public dealership information.</p>
+          <p>Lead submission may carry the name, email, phone, vehicle interest, message, and source provided by the person or their agent. Leads are forwarded to the dealership's existing contact-form system for customer follow-up.</p>
+          <p>See the dealership's privacy policy for complete customer-data handling: <a href="{html.escape(DEALER_PRIVACY_URLS[site.key])}">{customer_name} privacy policy</a></p>
+"""
+    else:
+        body_html = """<h1>Terms of service</h1>
+          <p>This Motor Inn AI endpoint provides public dealership information and may create a customer lead when that is requested. No account is required.</p>
+          <p>Do not use it for urgent vehicle or service needs. Purchases, financing, appointments, parts orders, and dealership commitments are confirmed only through Motor Inn staff or its published customer journeys.</p>
+          <p>Tool results are generated from site-specific sources and freshness checks. Always confirm prices, eligibility, availability, appointments, and orders with Motor Inn before acting.</p>
+          <p><a href="/privacy">Privacy policy</a></p>
+"""
+    html_page = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,follow">
+  <title>{html.escape(site.name)} · {html.escape(title)}</title>
+  <style>
+    body {{ margin: 0; background: #0B1F3A; color: #FFFFFF; font-family: system-ui, -apple-system, sans-serif; }}
+    main {{ box-sizing: border-box; max-width: 760px; margin: 0 auto; padding: 40px 24px; }}
+    .mark {{ text-transform: uppercase; letter-spacing: .12em; font-weight: 700; font-size: 14px; }}
+    h1 {{ margin: .2em 0 1em; font-size: 32px; }}
+    p {{ line-height: 1.6; }}
+    a {{ color: #8FCBFF; }}
+    footer {{ margin-top: 32px; color: #C1D3E8; font-size: 14px; line-height: 1.6; }}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">{customer_name}</div>
+    {body_html}
+    <footer>
+      <address style="font-style: normal">{address_line}<br><a href="tel:{nap['telephone']}">{nap['telephone']}</a><br><a href="{customer_website}">Customer website</a></address>
+    </footer>
+  </main>
+</body>
+</html>
+"""
+    response = Response(html_page, content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["X-Robots-Tag"] = "noindex, follow"
+    return response
 
 
 def local_business_schema(site: Site) -> dict[str, Any]:
@@ -1856,9 +1939,7 @@ def mcp_tools(profile: str = "default") -> list[dict[str, Any]]:
             "openWorldHint": True,
         },
     }
-    if profile == "default":
-        return tools
-    if profile not in {"context-only", "customer"}:
+    if profile not in {"default", "context-only", "customer"}:
         raise ValueError("unknown MCP profile")
 
     context_tool = {
@@ -1917,9 +1998,7 @@ def mcp_tools(profile: str = "default") -> list[dict[str, Any]]:
     context_tools = [tool for tool in tools if tool["name"] in context_names] + [context_tool]
     if profile == "context-only":
         return context_tools
-    if profile == "customer":
-                return tools + [context_tool, submit_lead_tool]
-    return tools + [context_tool]
+    return tools + [context_tool, submit_lead_tool]
 
 
 def mcp_success(request_id: Any, result: dict[str, Any]) -> Response:
@@ -2166,6 +2245,7 @@ def serve_mcp_profile(profile: str) -> Response:
             "protocolVersion": negotiated_version,
             "capabilities": {"tools": {"listChanged": False}},
             "serverInfo": {"name": "motorinn-agent-access", "version": "1.0.0"},
+            "serverInstructions": MCP_SERVER_INSTRUCTIONS,
         })
     protocol_version = request.headers.get("MCP-Protocol-Version", "2025-03-26")
     if protocol_version not in {"2025-11-25", "2025-06-18", "2025-03-26"}:
@@ -2403,6 +2483,45 @@ def serve_links_index(site_slug: str) -> Response:
     response.headers["X-Robots-Tag"] = "noindex, follow"
     return response
 
+
+@app.route("/terms")
+def serve_connected_app_terms() -> Response:
+    site = resolve_site()
+    return connected_app_page(site, "Terms of service", "")
+
+
+@app.route("/privacy")
+def serve_connected_app_privacy() -> Response:
+    site = resolve_site()
+    return connected_app_page(site, "Privacy policy", "")
+
+
+@app.route("/assets/icon-512.png")
+def serve_connected_app_icon() -> Response:
+    site = resolve_site()
+    try:
+        payload = (ASSETS_ROOT / site.key / "icon-512.png").read_bytes()
+    except OSError as exc:
+        logger.error(json.dumps({"event": "connected_app_icon_missing", "site": site.key, "error": str(exc)}))
+        return api_error("not_found", "Icon unavailable", 404)
+    response = Response(payload, content_type="image/png")
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
+@app.route("/.well-known/google-connected-apps")
+def serve_google_connected_apps_certificate() -> Response:
+    return api_response(google_connected_apps_certificate(resolve_site()), cache_seconds=3600)
+
+
+@app.route("/google-verification/<token>")
+def serve_google_verification_token(token: str) -> Response:
+    site = resolve_site()
+    if token not in google_verification_tokens(site):
+        return Response("Not found\n", status=404, content_type="text/plain; charset=utf-8")
+    response = Response(token, content_type="text/plain; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
 
 @app.route("/<path:filename>")
 def serve_static_or_proxy(filename: str) -> Response:
