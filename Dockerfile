@@ -12,7 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
 COPY articles ./articles
-COPY articles ./articles
 COPY agent_access.py .
 COPY content ./content
 COPY audit_data ./audit_data
