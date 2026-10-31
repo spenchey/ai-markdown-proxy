@@ -42,6 +42,8 @@ import agent_access
 CONTENT_ROOT = Path(__file__).resolve().parent / "content"
 OPENAPI_PATH = Path(__file__).resolve().parent / "openapi" / "agent-access-v1.yaml"
 AUDIT_DATA_ROOT = Path(__file__).resolve().parent / "audit_data"
+ARTICLE_ROOT = Path(__file__).resolve().parent / "articles"
+ARTICLE_DATE_PUBLISHED = "2026-10-31"
 CACHE_TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", "3600"))
 DYNAMIC_CACHE_TTL_SECONDS = int(os.environ.get("DYNAMIC_CACHE_TTL_SECONDS", "300"))
 MAX_SOURCE_AGE_SECONDS = int(os.environ.get("MAX_SOURCE_AGE_SECONDS", str(36 * 3600)))
@@ -185,6 +187,7 @@ DISCOVERY_PATHS = (
     "/skills.txt",
     "/.well-known/agents.json",
     "/.well-known/mcp.json",
+    "/articles/used-trucks-towing-iowa",
 )
 AGENT_QUERY_EXAMPLES = (
     "/llms?query=service&limit=3",
@@ -820,7 +823,7 @@ def llms_content(site: Site, filename: str) -> str:
         f"- [Customer agent MCP endpoint](https://{site.ai_host}/mcp/customer)\n"
         f"- [Existing read-only MCP endpoint](https://{site.ai_host}/mcp)"
     )
-    return f"{body}\n\n{nudge}\n"
+    return f"{body}\n\n{nudge}\n\n## Guides\n\n{_article_catalog_sections(site)}\n"
 
 
 FEED_LINE = "# machine-readable: /feed.json"
@@ -1446,12 +1449,107 @@ def source_is_hub(site: Site, source_path: str) -> bool:
     return normalized_path in hub_paths
 
 
+@lru_cache(maxsize=32)
+def article_catalog() -> tuple[dict[str, str], ...]:
+    return (
+        {
+            "slug": "used-trucks-towing-iowa",
+            "title": "Used Trucks for Towing in Iowa: How to Pick a Truck You Can Trust",
+            "description": (
+                "Use tow ratings, payload, hitch setup and service records to shop used trucks for towing in Iowa. "
+                "Compare Silverado 1500, F-150 and Ram 1500 ranges."
+            ),
+            "published": ARTICLE_DATE_PUBLISHED,
+        },
+    )
+
+
+def article_href(site: Site, slug: str) -> str:
+    return f"https://{site.ai_host}/articles/{slug}"
+
+
+def article_links_path(site: Site) -> str:
+    return f"/links/{site.key}.html"
+
+
+def article_contact_url(site: Site) -> str:
+    if site.base_url == "https://www.motorinnofcarroll.com":
+        return f"{site.base_url}/contactus.aspx"
+    return f"{site.base_url}/contactus.html"
+
+
+def _article_catalog_sections(site: Site) -> str:
+    return "\n".join(
+        f"- [{record['title']}]({article_href(site, record['slug'])}): {record['description']}"
+        for record in article_catalog()
+    )
+
+
+def _article_page_html(site: Site, record: dict[str, str]) -> str:
+    source = BeautifulSoup((ARTICLE_ROOT / f"{record['slug']}.html").read_text(encoding="utf-8"), "html.parser")
+    article_url = article_href(site, record["slug"])
+    for anchor in source.find_all("a"):
+        href = anchor.get("href")
+        if not href:
+            continue
+        parsed = urlsplit(href)
+        hostname = parsed.hostname or "www.motorinnautogroup.com"
+        if parsed.path == "/used-trucks" and hostname == "www.motorinnautogroup.com":
+            anchor["href"] = "/used-inventory.md"
+        elif parsed.path == "/contactus" and hostname == "www.motorinnautogroup.com":
+            anchor["href"] = article_contact_url(site)
+    source.append(BeautifulSoup(
+        f'<footer class="article-footer"><p>Automated readers can find related pages at '
+        f'<a href="{article_links_path(site)}">{site.name} related pages</a>.</p></footer>',
+        "html.parser",
+    ))
+    page_schema = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": record["title"],
+        "description": record["description"],
+        "author": {"@type": "Organization", "name": "Motor Inn Auto Group"},
+        "publisher": {
+            "@type": "Organization",
+            "name": "Motor Inn Auto Group",
+            "url": "https://www.motorinnautogroup.com",
+        },
+        "datePublished": record["published"],
+        "dateModified": record["published"],
+        "mainEntityOfPage": article_url,
+        "isAccessibleForFree": True,
+    }
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{html.escape(record['title'])}</title>
+    <meta name="description" content="{html.escape(record['description'])}">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="{html.escape(article_url)}">
+    <script type="application/ld+json">{json.dumps(page_schema, ensure_ascii=False)}</script>
+  </head>
+  <body>
+    <main>{source}</main>
+  </body>
+</html>
+"""
+
+
+def article_html(site: Site, slug: str) -> str:
+    record = next((entry for entry in article_catalog() if entry["slug"] == slug), None)
+    if record is None:
+        return ""
+    return _article_page_html(site, record)
+
+
 def related_links_page(site: Site) -> str:
     records = link_records_for_site(site)
     visible_top20 = records[:20]
     remainder = records[20:]
 
-    def anchor_list(items: list[LinkRecord]) -> str:
+    def anchor_list(items: list["LinkRecord"]) -> str:
         return "\n".join(
             '        <li><a href="{}" rel="internal follow">{}</a></li>'.format(
                 html.escape(mirror_href(site, record.dest_url)),
@@ -1479,6 +1577,14 @@ def related_links_page(site: Site) -> str:
         {top_markup}
         <h2>All supporting links</h2>
         {remainder_markup}
+      </main>
+    </section>
+    <section id="guides">
+      <main>
+        <h2>Guides</h2>
+        <ul>
+{'\n'.join(f'          <li><a href="{article_href(site, record["slug"])}">{html.escape(record["title"])}</a></li>' for record in article_catalog())}
+        </ul>
       </main>
     </section>
   </body>
@@ -1594,6 +1700,7 @@ def ai_txt(site: Site) -> str:
         "- Parts information: current parts request journey. It never creates an order.",
         "- Static contact and hours source: `/contact-hours.md`.",
     ]
+    lines.extend(["", "## Guides", _article_catalog_sections(site)])
     return "\n".join(lines) + "\n"
 
 
@@ -2481,6 +2588,17 @@ def serve_links_index(site_slug: str) -> Response:
     response = Response(related_links_page(site), content_type="text/html; charset=utf-8")
     response.headers["Cache-Control"] = "public, max-age=3600"
     response.headers["X-Robots-Tag"] = "noindex, follow"
+    return response
+
+
+@app.route("/articles/<path:slug>")
+def serve_article(slug: str) -> Response:
+    body = article_html(resolve_site(), slug)
+    if not body:
+        return Response("Not found\n", status=404, content_type="text/plain; charset=utf-8")
+    response = Response(body, content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["X-Robots-Tag"] = "index, follow"
     return response
 
 
