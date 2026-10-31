@@ -188,6 +188,7 @@ DISCOVERY_PATHS = (
     "/.well-known/agents.json",
     "/.well-known/mcp.json",
     "/articles/used-trucks-towing-iowa",
+    "/sitemap.html",
 )
 AGENT_QUERY_EXAMPLES = (
     "/llms?query=service&limit=3",
@@ -265,6 +266,41 @@ DEALER_PRIVACY_URLS = {
     "motorinnchevy": "https://www.motorinnofcarroll.com/privacy.aspx",
     "motorinntoyota": "https://www.motorinntoyotaofcarroll.com/privacy.aspx",
 }
+DEALER_SOCIAL_PROFILES = {
+    "motorinnautogroup": (
+        "https://www.facebook.com/MotorInnAutoGroup/",
+        "https://www.linkedin.com/company/motor-inn-auto-group",
+        "https://www.instagram.com/motorinnauto/",
+        "https://www.youtube.com/c/MotorInnAutoGroup",
+    ),
+    "motorinnchevy": ("https://www.facebook.com/MotorInnofCarroll",),
+    "motorinntoyota": (
+        "https://www.facebook.com/motorinntoyotaofcarroll",
+        "https://www.instagram.com/motorinnauto/",
+        "https://x.com/motorinntoyota",
+        "https://www.youtube.com/@MotorInnAutoGroup",
+    ),
+}
+DEALER_KNOWS_ABOUT = {
+    "motorinnautogroup": (
+        {
+            "@type": "Thing",
+            "name": "Motor Inn Toyota and Chevrolet of Carroll",
+            "description": "Family-owned Toyota and Chevrolet dealership in Carroll, Iowa.",
+            "sameAs": ("https://en.wikipedia.org/wiki/Toyota", "https://en.wikipedia.org/wiki/Chevrolet"),
+        },
+        {"@type": "Thing", "name": "Toyota", "sameAs": ("https://en.wikipedia.org/wiki/Toyota", "https://www.wikidata.org/entity/Q1013")},
+        {"@type": "Thing", "name": "Chevrolet", "sameAs": ("https://en.wikipedia.org/wiki/Chevrolet", "https://www.wikidata.org/entity/Q116829")},
+    ),
+    "motorinnchevy": (
+        {"@type": "Thing", "name": "Chevrolet", "sameAs": ("https://en.wikipedia.org/wiki/Chevrolet", "https://www.wikidata.org/entity/Q116829")},
+        {"@type": "Thing", "name": "Chevrolet Silverado", "sameAs": ("https://en.wikipedia.org/wiki/Chevrolet_Silverado", "https://www.wikidata.org/entity/Q1090290")},
+    ),
+    "motorinntoyota": (
+        {"@type": "Thing", "name": "Toyota", "sameAs": ("https://en.wikipedia.org/wiki/Toyota", "https://www.wikidata.org/entity/Q1013")},
+        {"@type": "Thing", "name": "Toyota Tacoma", "sameAs": ("https://en.wikipedia.org/wiki/Toyota_Tacoma", "https://www.wikidata.org/entity/Q2865086")},
+    ),
+}
 
 
 def google_verification_tokens(site: Site) -> tuple[str, ...]:
@@ -335,20 +371,56 @@ def connected_app_page(site: Site, title: str, body_html: str) -> Response:
 </body>
 </html>
 """
+    html_page = html_page.replace(
+        "<footer>",
+        '<footer><nav class="policy-links"><a href="/privacy">Privacy Policy</a> &middot; <a href="/terms">Terms of Service</a></nav>',
+        1,
+    )
     response = Response(html_page, content_type="text/html; charset=utf-8")
     response.headers["Cache-Control"] = "public, max-age=3600"
     response.headers["X-Robots-Tag"] = "noindex, follow"
     return response
 
 
+def add_dealer_schema(page_html: str, site: Site) -> str:
+    soup = BeautifulSoup(page_html, "html.parser")
+    node = soup.find("head") or soup.find("body") or soup
+    script = soup.new_tag("script")
+    script["type"] = "application/ld+json"
+    script.string = json.dumps(local_business_schema(site))
+    node.append(script)
+    return str(soup)
+
+
+def add_missing_image_alt_text(page_html: str, site: Site) -> str:
+    soup = BeautifulSoup(page_html, "html.parser")
+    alt_by_name = {
+        "quick-nav-icon-wrench.png": "Service and repair resources",
+        "quick-nav-icon-search.png": "Inventory search resources",
+        "quick-nav-icon-finance.png": "Financing resources",
+        "quick-nav-icon-location.png": "Dealership location and directions",
+    }
+    for image in soup.find_all("img"):
+        if image.get("alt"):
+            continue
+        source = urlsplit(image.get("src") or image.get("data-src") or "")
+        description = alt_by_name.get(source.path.rsplit("/", 1)[-1])
+        if description:
+            image["alt"] = f"{site.name} {description}. Use it to reach the dealership's public resources."
+    return str(soup)
+
+
 def local_business_schema(site: Site) -> dict[str, Any]:
     nap = GBP_NAP[site.key]
     return {
         "@context": "https://schema.org",
-        "@type": "LocalBusiness",
+        "@type": "AutoDealer",
         "@id": urljoin(site.base_url.rstrip("/") + "/", "#storefront"),
         "name": nap["name"],
         "telephone": nap["telephone"],
+        "url": site.base_url,
+        "logo": f"https://{site.ai_host}/assets/icon-512.png",
+        "image": f"https://{site.ai_host}/assets/icon-512.png",
         "address": {
             "@type": "PostalAddress",
             "streetAddress": nap["streetAddress"],
@@ -357,6 +429,8 @@ def local_business_schema(site: Site) -> dict[str, Any]:
             "postalCode": nap["postalCode"],
             "addressCountry": nap["addressCountry"],
         },
+        "sameAs": (site.base_url, *DEALER_SOCIAL_PROFILES[site.key]),
+        "knowsAbout": DEALER_KNOWS_ABOUT[site.key],
     }
 
 
@@ -1622,6 +1696,40 @@ def sitemap_xml(site: Site) -> str:
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}\n</urlset>\n'
 
 
+def sitemap_html(site: Site) -> str:
+    paths = sorted({"/", "/terms", "/privacy", "/sitemap.html", *DISCOVERY_PATHS, *AGENT_QUERY_EXAMPLES})
+    links = "\n".join(
+        f'      <li><a href="{html.escape(path)}">{html.escape(path)}</a></li>'
+        for path in paths
+    )
+    template = """<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,follow">
+    <title>__SITE_NAME__ Site Guide</title>
+    <style>
+      body { margin: 0; background: #0B1F3A; color: #FFFFFF; font-family: system-ui, -apple-system, sans-serif; }
+      main { box-sizing: border-box; max-width: 760px; margin: 0 auto; padding: 40px 24px; }
+      h1 { font-size: 30px; margin: .2em 0 1em; }
+      a { color: #8FCBFF; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>__SITE_NAME__ Site Guide</h1>
+      <p>Public links on this AI-readable mirror. The customer's main site remains <a href="__BASE_URL__">__BASE_URL__</a>.</p>
+      <ul>
+__LINKS__
+      </ul>
+    </main>
+  </body>
+</html>
+"""
+    return template.replace("__SITE_NAME__", html.escape(site.name)).replace("__BASE_URL__", html.escape(site.base_url)).replace("__LINKS__", links)
+
+
 def discovery_html(site: Site) -> str:
     nap = GBP_NAP[site.key]
     nap_line = f'{nap["name"]} · {nap["streetAddress"]}, {nap["addressLocality"]}, {nap["addressRegion"]} {nap["postalCode"]} · <a href="tel:{nap["telephone"]}">{nap["telephone"]}</a>'
@@ -1647,6 +1755,7 @@ def discovery_html(site: Site) -> str:
       <p><a href="{html.escape(site.base_url)}">Visit the customer website</a></p>
       <ul>
 {links}
+        <li><a href="/sitemap.html">/sitemap.html</a></li>
         <li><a href="/sitemap.xml">/sitemap.xml</a></li>
       </ul>
     </main>
@@ -2490,6 +2599,15 @@ def serve_robots() -> Response:
     return text_response(robots_txt(resolve_site()))
 
 
+@app.route("/sitemap.html")
+def serve_sitemap_html() -> Response:
+    site = resolve_site()
+    response = Response(sitemap_html(site), content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["X-Robots-Tag"] = "noindex, follow"
+    return response
+
+
 @app.route("/sitemap.xml")
 def serve_sitemap() -> Response:
     return xml_response(sitemap_xml(resolve_site()))
@@ -2676,7 +2794,10 @@ def root() -> Response:
     if "text/markdown" not in request.headers.get("Accept", ""):
         related = related_link_records(site, "/")
         if related:
-            response = Response(inject_related_links(fetch_page(site.base_url), site, "/"), content_type="text/html; charset=utf-8")
+            home_html = fetch_page(site.base_url)
+            home_html = add_missing_image_alt_text(home_html, site)
+            home_html = add_dealer_schema(home_html, site)
+            response = Response(inject_related_links(home_html, site, "/"), content_type="text/html; charset=utf-8")
             response.headers["Cache-Control"] = "public, max-age=3600"
             response.headers["Link"] = (
                 f'<{site.base_url}>; rel="canonical", '
