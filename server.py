@@ -251,7 +251,7 @@ AGENT_FLOWS = (
     {"name": "get-parts-information", "title": "Get parts information", "openApiOperationId": "getPartsInformation"},
 )
 AGENT_NAMES = tuple(flow["name"] for flow in AGENT_FLOWS)
-DEALERON_MCP_SERVER_VERSION = "2026-10-29"
+DEALERON_MCP_SERVER_VERSION = "2026-10-31"
 DEALERON_MCP_ENDPOINT = "/mcp"
 MCP_SERVER_INSTRUCTIONS = (
     "Use Motor Inn tools only for the dealership on this host. Use search_vehicles to find public inventory and get_vehicle only with an exact VIN from search_vehicles. Use list_locations for hours and contacts. Use get_service_information for service capability and its public next step. Use get_parts_information for parts capability only. Do not claim vehicle reservations, purchases, financing approvals, service bookings, part stock, fitment, or orders. Use search_public_website for validated policy and site pages. Use submit_lead only when the user asks for contact and supplies name, email, phone, and source; each submission creates a new lead and is not idempotent."
