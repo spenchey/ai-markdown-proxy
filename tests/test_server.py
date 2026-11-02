@@ -4,6 +4,8 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+from bs4 import BeautifulSoup
+
 import server
 
 
@@ -169,7 +171,10 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.content_type.startswith("text/html"))
         self.assertEqual(response.headers["X-Robots-Tag"], "noindex, follow")
-        self.assertIn('<link rel="canonical" href="https://www.motorinnofcarroll.com">', body)
+        soup = BeautifulSoup(body, "html.parser")
+        canonical = soup.find("link", rel=["canonical"])
+        self.assertIsNotNone(canonical)
+        self.assertEqual(canonical.get("href"), "https://www.motorinnofcarroll.com")
         self.assertIn('href="/llms.txt"', body)
         self.assertIn('href="/sitemap.xml"', body)
         self.assertNotIn("motorinntoyotaofcarroll.com", body)
