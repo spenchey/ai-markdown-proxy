@@ -2850,7 +2850,11 @@ def serve_static_or_proxy(filename: str) -> Response:
     if not wants_markdown:
         html_records = related_link_records(site, source_path)
         if html_records or ("/" + source_path.lstrip("/")) in SEO_HTML_PATHS:
-            page_html = fetch_page(source_url)
+            try:
+                page_html = fetch_page(source_url)
+            except Exception:
+                logger.warning(json.dumps({"event": "seo_html_fallback", "url": source_url}))
+                return redirect(source_url, code=302)
             response = Response(inject_related_links(page_html, site, source_path), content_type="text/html; charset=utf-8")
             response.headers["Cache-Control"] = "public, max-age=3600"
             return response
