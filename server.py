@@ -2849,7 +2849,7 @@ def serve_static_or_proxy(filename: str) -> Response:
     source_url = canonical_url(site, source_path)
     if not wants_markdown:
         html_records = related_link_records(site, source_path)
-        if html_records or source_path in SEO_HTML_PATHS:
+        if html_records or ("/" + source_path.lstrip("/")) in SEO_HTML_PATHS:
             page_html = fetch_page(source_url)
             response = Response(inject_related_links(page_html, site, source_path), content_type="text/html; charset=utf-8")
             response.headers["Cache-Control"] = "public, max-age=3600"
