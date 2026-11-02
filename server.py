@@ -2905,7 +2905,10 @@ def root() -> Response:
             )
             response.headers["X-Robots-Tag"] = "noindex, follow"
             return response
-        response = Response(discovery_html(site), content_type="text/html; charset=utf-8")
+        discovery_page = discovery_html(site)
+        discovery_page = add_entity_schema_to_pages(discovery_page, site, "/")
+        discovery_page = add_hub_footer_links(discovery_page, site)
+        response = Response(discovery_page, content_type="text/html; charset=utf-8")
         response.headers["Cache-Control"] = "public, max-age=3600"
         response.headers["Link"] = (
             f'<{site.base_url}>; rel="canonical", '
