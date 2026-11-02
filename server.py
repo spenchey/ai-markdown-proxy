@@ -2837,6 +2837,11 @@ def serve_google_verification_token(token: str) -> Response:
 
 # Money pages served on the mirror with full SEO layers (Chris Simpson checklist).
 SEO_HTML_PATHS = {"/", "/new-inventory", "/used-inventory", "/service", "/contact-us", "/about", "/finance"}
+# Mirror path -> upstream www path aliases (DealerOn route names differ per store).
+SEO_UPSTREAM_ALIASES = {
+    "/contact-us": {key: "/contactus" for key in ("motorinnautogroup", "motorinntoyota", "motorinnchevy")},
+    "/service": {"motorinnautogroup": "/service-locations.html", "motorinntoyota": "/service.aspx"},
+}
 
 @app.route("/<path:filename>")
 def serve_static_or_proxy(filename: str) -> Response:
@@ -2850,11 +2855,18 @@ def serve_static_or_proxy(filename: str) -> Response:
     if not wants_markdown:
         html_records = related_link_records(site, source_path)
         if html_records or ("/" + source_path.lstrip("/")) in SEO_HTML_PATHS:
+            upstream_alias = ("/" + source_path.lstrip("/"))
+            alias_map = SEO_UPSTREAM_ALIASES.get(upstream_alias, {})
+            alias_target = alias_map.get(site.key)
+            fetch_url = canonical_url(site, alias_target) if alias_target else source_url
             try:
-                page_html = fetch_page(source_url)
+                page_html = fetch_page(fetch_url)
             except Exception:
-                logger.warning(json.dumps({"event": "seo_html_fallback", "url": source_url}))
-                return redirect(source_url, code=302)
+                try:
+                    page_html = fetch_page(source_url)
+                except Exception:
+                    logger.warning(json.dumps({"event": "seo_html_fallback", "url": source_url}))
+                    return redirect(source_url, code=302)
             response = Response(inject_related_links(page_html, site, source_path), content_type="text/html; charset=utf-8")
             response.headers["Cache-Control"] = "public, max-age=3600"
             return response
