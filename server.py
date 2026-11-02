@@ -410,6 +410,79 @@ def add_missing_image_alt_text(page_html: str, site: Site) -> str:
     return str(soup)
 
 
+def complete_heading_ladder(page_html: str, site: Site) -> str:
+    """Chris Simpson checklist: money pages must carry a full H1-H6 ladder."""
+    soup = BeautifulSoup(page_html, "html.parser")
+    body = soup.find("body")
+    if body is None:
+        return str(soup)
+    present = {f"h{level}": body.find_all(f"h{level}") for level in range(1, 7)}
+    if all(present[f"h{level}"] for level in range(1, 7)):
+        return str(soup)
+    anchor = soup.new_tag("section", id="heading-ladder")
+    anchor["class"] = "container seo-ladder"
+    for level in (5, 6):
+        if present[f"h{level}"]:
+            continue
+        tag = soup.new_tag(f"h{level}")
+        if level == 5:
+            tag.string = f"Popular used vehicles at {site.name}"
+        else:
+            tag.string = f"Questions? Contact {site.name}"
+        anchor.append(tag)
+        paragraph = soup.new_tag("p")
+        paragraph.string = (
+            f"Browse the {site.name} used vehicle inventory, schedule service, or get directions. "
+            f"The full page guide lives at https://{site.ai_host}/sitemap.html."
+        )
+        anchor.append(paragraph)
+    body.append(anchor)
+    return str(soup)
+
+
+def add_entity_schema_to_pages(page_html: str, site: Site, source_path: str = "") -> str:
+    """AutoDealer + knowsAbout entity coverage on every proxied HTML page."""
+    soup = BeautifulSoup(page_html, "html.parser")
+    if soup.find("script", id="motorinn-entity"):
+        return str(soup)
+    node = soup.find("head") or soup.find("body") or soup
+    script = soup.new_tag("script")
+    script["type"] = "application/ld+json"
+    script["id"] = "motorinn-entity"
+    script.string = json.dumps(local_business_schema(site))
+    node.append(script)
+    return str(soup)
+
+
+def add_hub_footer_links(page_html: str, site: Site) -> str:
+    """Hub structure: every money page links the site guide, policies and article hubs."""
+    soup = BeautifulSoup(page_html, "html.parser")
+    body = soup.find("body")
+    if body is None or body.find(id="motorinn-hub-nav"):
+        return str(soup)
+    nav = soup.new_tag("nav", id="motorinn-hub-nav")
+    nav["class"] = "container"
+    heading = soup.new_tag("h2")
+    heading.string = f"{site.name} resource hubs"
+    nav.append(heading)
+    links = [
+        (f"https://{site.ai_host}/sitemap.html", "Site guide (HTML sitemap)"),
+        (f"https://{site.ai_host}/articles/used-trucks-towing-iowa", "Used truck buying guide"),
+        (f"https://{site.ai_host}/terms", "Terms"),
+        (f"https://{site.ai_host}/privacy", "Privacy policy"),
+        (f"https://{site.ai_host}/links/{site.key}.html", "Related dealership sites"),
+    ]
+    list_tag = soup.new_tag("ul")
+    for href, label in links:
+        item = soup.new_tag("li")
+        anchor = soup.new_tag("a", href=href)
+        anchor.string = label
+        item.append(anchor)
+        list_tag.append(item)
+    nav.append(list_tag)
+    body.append(nav)
+    return str(soup)
+
 def local_business_schema(site: Site) -> dict[str, Any]:
     nap = GBP_NAP[site.key]
     return {
@@ -1668,6 +1741,9 @@ def related_links_page(site: Site) -> str:
 
 def inject_related_links(page_html: str, site: Site, source_path: str) -> str:
     records = related_link_records(site, source_path)
+    page_html = add_entity_schema_to_pages(page_html, site, source_path)
+    page_html = complete_heading_ladder(page_html, site)
+    page_html = add_hub_footer_links(page_html, site)
     soup = BeautifulSoup(page_html, "html.parser")
     section = soup.new_tag("section", id="related-pages")
     heading = soup.new_tag("h2")
@@ -2797,6 +2873,8 @@ def root() -> Response:
             home_html = fetch_page(site.base_url)
             home_html = add_missing_image_alt_text(home_html, site)
             home_html = add_dealer_schema(home_html, site)
+            home_html = complete_heading_ladder(home_html, site)
+            home_html = add_hub_footer_links(home_html, site)
             response = Response(inject_related_links(home_html, site, "/"), content_type="text/html; charset=utf-8")
             response.headers["Cache-Control"] = "public, max-age=3600"
             response.headers["Link"] = (
