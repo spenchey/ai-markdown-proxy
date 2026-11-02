@@ -1832,6 +1832,10 @@ def discovery_html(site: Site) -> str:
       <h1>{html.escape(site.name)} AI-readable resources</h1>
       <p>Source-backed dealership, inventory, offer, service, and contact information for automated readers.</p>
       <p><a href="{html.escape(site.base_url)}">Visit the customer website</a></p>
+      <h3>Agent and API resources</h3>
+      <p>Machine-readable endpoints, policies and link indexes for automated readers.</p>
+      <h4>Customer pages</h4>
+      <p>Browse inventory and services on the customer website linked above.</p>
       <ul>
 {links}
         <li><a href="/sitemap.html">/sitemap.html</a></li>
