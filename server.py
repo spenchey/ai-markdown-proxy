@@ -2835,6 +2835,9 @@ def serve_google_verification_token(token: str) -> Response:
     response.headers["Cache-Control"] = "public, max-age=3600"
     return response
 
+# Money pages served on the mirror with full SEO layers (Chris Simpson checklist).
+SEO_HTML_PATHS = {"/", "/new-inventory", "/used-inventory", "/service", "/contact-us", "/about", "/finance"}
+
 @app.route("/<path:filename>")
 def serve_static_or_proxy(filename: str) -> Response:
     site = resolve_site()
@@ -2846,7 +2849,7 @@ def serve_static_or_proxy(filename: str) -> Response:
     source_url = canonical_url(site, source_path)
     if not wants_markdown:
         html_records = related_link_records(site, source_path)
-        if html_records:
+        if html_records or source_path in SEO_HTML_PATHS:
             page_html = fetch_page(source_url)
             response = Response(inject_related_links(page_html, site, source_path), content_type="text/html; charset=utf-8")
             response.headers["Cache-Control"] = "public, max-age=3600"

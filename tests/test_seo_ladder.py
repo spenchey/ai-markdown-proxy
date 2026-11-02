@@ -54,3 +54,8 @@ class SeoLadderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SeoMoneyPathTests(unittest.TestCase):
+    def test_seo_paths_constant(self) -> None:
+        self.assertIn("/used-inventory", server.SEO_HTML_PATHS)
