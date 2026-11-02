@@ -421,14 +421,17 @@ def complete_heading_ladder(page_html: str, site: Site) -> str:
         return str(soup)
     anchor = soup.new_tag("section", id="heading-ladder")
     anchor["class"] = "container seo-ladder"
-    for level in (5, 6):
+    texts = {
+        1: f"{site.name} - {site.base_url}",
+        2: f"Shop, service and finance at {site.name}",
+        5: f"Popular used vehicles at {site.name}",
+        6: f"Questions? Contact {site.name}",
+    }
+    for level in (1, 2, 5, 6):
         if present[f"h{level}"]:
             continue
         tag = soup.new_tag(f"h{level}")
-        if level == 5:
-            tag.string = f"Popular used vehicles at {site.name}"
-        else:
-            tag.string = f"Questions? Contact {site.name}"
+        tag.string = texts[level]
         anchor.append(tag)
         paragraph = soup.new_tag("p")
         paragraph.string = (
@@ -2908,6 +2911,7 @@ def root() -> Response:
         discovery_page = discovery_html(site)
         discovery_page = add_entity_schema_to_pages(discovery_page, site, "/")
         discovery_page = add_hub_footer_links(discovery_page, site)
+        discovery_page = complete_heading_ladder(discovery_page, site)
         response = Response(discovery_page, content_type="text/html; charset=utf-8")
         response.headers["Cache-Control"] = "public, max-age=3600"
         response.headers["Link"] = (
