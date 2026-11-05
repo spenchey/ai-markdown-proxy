@@ -13,6 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY server.py .
 COPY articles ./articles
 COPY agent_access.py .
+COPY vehicle_pages.py .
+COPY answer_pages ./answer_pages
 COPY content ./content
 COPY audit_data ./audit_data
 COPY assets ./assets
