@@ -50,6 +50,12 @@ def render_vehicle_markdown(row: dict[str, Any], fee_label: str, dealer_name: st
     ).strip() or "Vehicle"
     vin = normalize_vin(row.get("vin"))
     price = row.get("display_price")
+    if price in (None, "", 0):
+        dv_price = (row.get("dealerVault") or {}).get("internet_price") or (row.get("dealerVault") or {}).get("list_price")
+        try:
+            price = float(dv_price)
+        except (TypeError, ValueError):
+            price = None
     lines = [
         f"# {vehicle} - VIN {vin}",
         "",
