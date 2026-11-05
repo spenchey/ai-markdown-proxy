@@ -1,0 +1,11 @@
+{
+ "slug": "car-payment-calculator-carroll",
+ "title": "Estimate a Car Payment - Carroll, Iowa",
+ "audience_query": "what would my monthly payment be?",
+ "dealer_keys": [
+  "motorinnautogroup",
+  "motorinnchevy",
+  "motorinntoyota"
+ ],
+ "generated": "2026-11-05"
+}

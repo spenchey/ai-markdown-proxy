@@ -37,6 +37,7 @@ from flask import Flask, Response, g, jsonify, redirect, request
 from markdownify import markdownify
 
 import agent_access
+from vehicle_pages import find_row, load_answer_pages, markdown_to_html, normalize_vin, render_vehicle_markdown
 
 
 CONTENT_ROOT = Path(__file__).resolve().parent / "content"
@@ -1766,7 +1767,8 @@ def inject_related_links(page_html: str, site: Site, source_path: str) -> str:
 
 
 def sitemap_xml(site: Site) -> str:
-    eligible_paths = DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
+    answer_slugs = [f"/answers/{page.slug}" for page in load_answer_pages()[0] if site.key in page.dealer_keys]
+    eligible_paths = list(DISCOVERY_PATHS) + list(AGENT_QUERY_EXAMPLES) + answer_slugs
     urls = "\n".join(
         f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
         for path in eligible_paths
@@ -2675,6 +2677,105 @@ def serve_api_catalog() -> Response:
     response = api_response(api_catalog(site), cache_seconds=3600)
     response.headers["Link"] = f'<{urljoin("https://" + site.ai_host, "/api")}>; rel="service"'
     return response
+
+
+
+
+def _answer_pages_for(site: Site) -> list:
+    return [page for page in load_answer_pages()[0] if site.key in page.dealer_keys]
+
+
+def _vehicle_row_or_none(site: Site, vin: str):
+    rows, _catalog_modified, _inventory_modified = match_rows()
+    row = find_row(rows, vin)
+    if row is None:
+        return None
+    if getattr(site, "new_make", None) and str(row.get("condition", "")).lower() == "new":
+        if str(row.get("vehicle_make", "")).upper() != site.new_make:
+            return None
+    return row
+
+
+def _vehicle_page_markdown(site: Site, row: dict) -> str:
+    dv = row.get("dealerVault") if isinstance(row.get("dealerVault"), dict) else {}
+    link = canonical_catalog_link(dv.get("link") or row.get("link", ""))
+    enriched = {**row, "canonical_link": link}
+    fee_note = f"including ${DOC_FEE:,.0f} documentation fee; plus tax, title, and license"
+    return render_vehicle_markdown(enriched, fee_note, site.name)
+
+
+@app.route("/v/<vin>")
+@app.route("/v/<vin>.md")
+def serve_vehicle_page(vin: str) -> Response:
+    site = resolve_site()
+    normalized = normalize_vin(vin)
+    if len(normalized) != 17:
+        return api_error("invalid_request", "Provide the 17-character VIN", 404)
+    try:
+        row = _vehicle_row_or_none(site, normalized)
+    except SourceUnavailable:
+        return markdown_response("# Inventory temporarily unavailable\n", status=503, max_age=0)
+    if row is None:
+        return api_error("not_found", "Vehicle not found", 404)
+    canonical = f"https://{site.ai_host}/v/{normalized}"
+    return markdown_response(_vehicle_page_markdown(site, row), canonical=canonical, max_age=1800)
+
+
+@app.route("/v/<vin>.html")
+def serve_vehicle_page_html(vin: str) -> Response:
+    site = resolve_site()
+    normalized = normalize_vin(vin)
+    row = _vehicle_row_or_none(site, normalized) if len(normalized) == 17 else None
+    if row is None:
+        return api_error("not_found", "Vehicle not found", 404)
+    body = _vehicle_page_markdown(site, row)
+    title_line = body.splitlines()[0].lstrip("# ")
+    html_page = markdown_to_html(body, title_line, site.name)
+    response = Response(html_page, content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=1800"
+    response.headers["X-Robots-Tag"] = "index, follow"
+    response.headers["Link"] = f'<https://{site.ai_host}/v/{normalized}.md>; rel="alternate"; type="text/markdown"'
+    return response
+
+
+@app.route("/answers")
+@app.route("/answers/")
+def serve_answers_index() -> Response:
+    site = resolve_site()
+    pages = _answer_pages_for(site)
+    lines = [f"# {site.name} - Answer pages", "",
+             "> Straight answers to questions Carrol-area shoppers ask AI assistants. One topic per page.", ""]
+    for page in pages:
+        q = f" - {page.audience_query}" if page.audience_query else ""
+        lines.append(f"- [{page.title}](/answers/{page.slug}.md){q}")
+    lines.append("")
+    return markdown_response("\n".join(lines), max_age=3600)
+
+
+@app.route("/answers/<slug>")
+@app.route("/answers/<slug>.md")
+def serve_answer_page(slug: str) -> Response:
+    site = resolve_site()
+    page = next((p for p in _answer_pages_for(site) if p.slug == slug), None)
+    if page is None:
+        return api_error("not_found", "Answer page not found", 404)
+    canonical = f"https://{site.ai_host}/answers/{slug}"
+    return markdown_response(page.body, canonical=canonical, max_age=3600)
+
+
+@app.route("/answers/<slug>.html")
+def serve_answer_page_html(slug: str) -> Response:
+    site = resolve_site()
+    page = next((p for p in _answer_pages_for(site) if p.slug == slug), None)
+    if page is None:
+        return api_error("not_found", "Answer page not found", 404)
+    html_page = markdown_to_html(page.body, page.title, site.name)
+    response = Response(html_page, content_type="text/html; charset=utf-8")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    response.headers["X-Robots-Tag"] = "index, follow"
+    response.headers["Link"] = f'<https://{site.ai_host}/answers/{slug}.md>; rel="alternate"; type="text/markdown"'
+    return response
+
 
 
 @app.route("/robots.txt")
