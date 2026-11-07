@@ -15,6 +15,7 @@ Last verified: 2026-08-02T13:30:00-05:00
 ## Take the next step
 
 - [Service](https://www.motorinnautogroup.com/service-locations.html)
+- [Schedule service directly in XTime (pick your date and time)](https://www.xtime.com/scheduling/?webKey=xtm20260814115234xx1&skipRedirect=true&VARIANT=SERVICETAB&WMODE=true#/)
 - [Service Appointment](https://www.motorinnautogroup.com/serviceappmt.aspx)
 - [Parts Request](https://www.motorinnautogroup.com/orderparts.aspx)
 - [Specials](https://www.motorinnautogroup.com/specials.aspx)

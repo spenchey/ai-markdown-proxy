@@ -18,6 +18,7 @@ Last verified: 2026-08-02T13:30:00-05:00
 ## Take the next step
 
 - [Service](https://www.motorinntoyotaofcarroll.com/service-center.html)
+- [Schedule service directly in XTime (pick your date and time)](https://www.xtime.com/scheduling/?webKey=xtm20260814115234xx1&skipRedirect=true&VARIANT=SERVICETAB&WMODE=true#/)
 - [Service Appointment](https://www.motorinntoyotaofcarroll.com/serviceappmt.aspx)
 - [Parts](https://www.motorinntoyotaofcarroll.com/parts-department/)
 - [Parts Request](https://www.motorinntoyotaofcarroll.com/orderparts.aspx)
