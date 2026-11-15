@@ -45,6 +45,7 @@ OPENAPI_PATH = Path(__file__).resolve().parent / "openapi" / "agent-access-v1.ya
 AUDIT_DATA_ROOT = Path(__file__).resolve().parent / "audit_data"
 ARTICLE_ROOT = Path(__file__).resolve().parent / "articles"
 ARTICLE_DATE_PUBLISHED = "2026-10-31"
+WAVE2_ARTICLE_DATE_PUBLISHED = "2026-11-15"
 CACHE_TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", "3600"))
 DYNAMIC_CACHE_TTL_SECONDS = int(os.environ.get("DYNAMIC_CACHE_TTL_SECONDS", "300"))
 MAX_SOURCE_AGE_SECONDS = int(os.environ.get("MAX_SOURCE_AGE_SECONDS", str(36 * 3600)))
@@ -188,7 +189,6 @@ DISCOVERY_PATHS = (
     "/skills.txt",
     "/.well-known/agents.json",
     "/.well-known/mcp.json",
-    "/articles/used-trucks-towing-iowa",
     "/sitemap.html",
 )
 AGENT_QUERY_EXAMPLES = (
@@ -469,13 +469,18 @@ def add_hub_footer_links(page_html: str, site: Site) -> str:
     heading = soup.new_tag("h2")
     heading.string = f"{site.name} resource hubs"
     nav.append(heading)
-    links = [
-        (f"https://{site.ai_host}/sitemap.html", "Site guide (HTML sitemap)"),
-        (f"https://{site.ai_host}/articles/used-trucks-towing-iowa", "Used truck buying guide"),
-        (f"https://{site.ai_host}/terms", "Terms"),
-        (f"https://{site.ai_host}/privacy", "Privacy policy"),
-        (f"https://{site.ai_host}/links/{site.key}.html", "Related dealership sites"),
-    ]
+    links = [(f"https://{site.ai_host}/sitemap.html", "Site guide (HTML sitemap)")]
+    links.extend(
+        (article_href(site, record["slug"]), record["title"])
+        for record in article_catalog_for_site(site)
+    )
+    links.extend(
+        [
+            (f"https://{site.ai_host}/terms", "Terms"),
+            (f"https://{site.ai_host}/privacy", "Privacy policy"),
+            (f"https://{site.ai_host}/links/{site.key}.html", "Related dealership sites"),
+        ]
+    )
     list_tag = soup.new_tag("ul")
     for href, label in links:
         item = soup.new_tag("li")
@@ -1005,6 +1010,21 @@ def feed_items(site: Site) -> list[dict[str, str]]:
         else:
             updated = manifest_generated_at or iso_timestamp(llms_mtime)
         items.append({"site": site.key, "url": url, "title": title, "updated": updated, "summary": summary})
+    for record in article_catalog_for_site(site):
+        url = article_href(site, record["slug"])
+        if url in seen:
+            continue
+        seen.add(url)
+        published = datetime.fromisoformat(record["published"]).replace(tzinfo=timezone.utc)
+        items.append(
+            {
+                "site": site.key,
+                "url": url,
+                "title": record["title"],
+                "updated": iso_timestamp(published),
+                "summary": record["description"],
+            }
+        )
     return items
 
 
@@ -1282,8 +1302,34 @@ def build_static_query_documents(site: Site) -> list[QueryDocument]:
     return documents
 
 
+def build_article_query_documents(site: Site) -> list[QueryDocument]:
+    """Article bodies in the search index: article URL as source, visible text as body."""
+    documents: list[QueryDocument] = []
+    for record in article_catalog_for_site(site):
+        path = ARTICLE_ROOT / f"{record['slug']}.html"
+        if not path.exists():
+            continue
+        fragment = BeautifulSoup(path.read_text(encoding="utf-8"), "html.parser")
+        for node in fragment.find_all(("script", "style")):
+            node.extract()
+        url = article_href(site, record["slug"])
+        documents.append(
+            QueryDocument(
+                id=f"{site.key}:article:{record['slug']}",
+                title=record["title"],
+                body=fragment.get_text(" ", strip=True),
+                canonical_url=url,
+                source_url=url,
+                source_type="article",
+                freshness=iso_timestamp(datetime.fromisoformat(record["published"]).replace(tzinfo=timezone.utc)),
+            )
+        )
+    return documents
+
+
 def build_query_documents(site: Site) -> list[QueryDocument]:
     documents = build_static_query_documents(site)
+    documents.extend(build_article_query_documents(site))
     for condition in ("new", "used"):
         filename = f"{condition}-inventory.md"
         try:
@@ -1600,11 +1646,15 @@ def source_is_hub(site: Site, source_path: str) -> bool:
     return normalized_path in hub_paths
 
 
+ARTICLE_SITES_ALL = ("motorinnautogroup", "motorinnchevy", "motorinntoyota")
+
+
 @lru_cache(maxsize=32)
 def article_catalog() -> tuple[dict[str, str], ...]:
     return (
         {
             "slug": "used-trucks-towing-iowa",
+            "sites": ARTICLE_SITES_ALL,
             "title": "Used Trucks for Towing in Iowa: How to Pick a Truck You Can Trust",
             "description": (
                 "Use tow ratings, payload, hitch setup and service records to shop used trucks for towing in Iowa. "
@@ -1612,7 +1662,76 @@ def article_catalog() -> tuple[dict[str, str], ...]:
             ),
             "published": ARTICLE_DATE_PUBLISHED,
         },
+        {
+            "slug": "aboutus-augment-spirit-lake",
+            "sites": ("motorinnautogroup",),
+            "title": "About Motor Inn Auto Group and Spirit Lake Used Cars",
+            "description": (
+                "Find Motor Inn Auto Group information, current used inventory, and the details shoppers should confirm "
+                "before visiting from or shopping in Spirit Lake."
+            ),
+            "published": WAVE2_ARTICLE_DATE_PUBLISHED,
+        },
+        {
+            "slug": "heavy-duty-vs-light-duty-trucks",
+            "sites": ("motorinnchevy",),
+            "title": "Heavy-Duty vs. Light-Duty Trucks: Everyday Use Guide",
+            "description": (
+                "Compare light-duty and heavy-duty trucks for daily driving, payload, towing, hitch weight, and "
+                "exact-truck rating checks before you buy."
+            ),
+            "published": WAVE2_ARTICLE_DATE_PUBLISHED,
+        },
+        {
+            "slug": "highlander-vs-grand-highlander",
+            "sites": ("motorinntoyota",),
+            "title": "Highlander vs. Grand Highlander: Size Comparison Guide",
+            "description": (
+                "See exactly how much bigger the 2026 Grand Highlander is than the Highlander, including length, "
+                "wheelbase, cargo room, and third-row space."
+            ),
+            "published": WAVE2_ARTICLE_DATE_PUBLISHED,
+        },
+        {
+            "slug": "toyota-rav4-carroll-iowa",
+            "sites": ("motorinntoyota",),
+            "title": "Toyota RAV4 in Carroll, Iowa: Why It Stays Popular",
+            "description": (
+                "See why Toyota RAV4 demand stays strong, what to verify on a used RAV4, and how to check current "
+                "RAV4 inventory near Carroll, Iowa."
+            ),
+            "published": WAVE2_ARTICLE_DATE_PUBLISHED,
+        },
+        {
+            "slug": "trim-levels-explained",
+            "sites": ("motorinnautogroup",),
+            "title": "Vehicle Trim Levels Explained for Cars and Trucks Guide",
+            "description": (
+                "Learn what a vehicle trim level means, how trims differ from models and packages, and how to compare "
+                "upholstery and features by model year."
+            ),
+            "published": WAVE2_ARTICLE_DATE_PUBLISHED,
+        },
+        {
+            "slug": "used-car-maintenance-mileage",
+            "sites": ("motorinnautogroup",),
+            "title": "How Long Can a Car Last? High-Mileage Used-Car Guide",
+            "description": (
+                "There is no fixed breakdown mileage. Use service records, the owner's maintenance schedule, condition, "
+                "warning signs, and an inspection to judge a car."
+            ),
+            "published": WAVE2_ARTICLE_DATE_PUBLISHED,
+        },
     )
+
+
+def article_catalog_for_site(site: Site) -> tuple[dict[str, str], ...]:
+    """Site-filtered catalog: a slug may only serve on its declared hosts."""
+    return tuple(record for record in article_catalog() if site.key in record["sites"])
+
+
+def article_site_paths(site: Site) -> tuple[str, ...]:
+    return tuple(f"/articles/{record['slug']}" for record in article_catalog_for_site(site))
 
 
 def article_href(site: Site, slug: str) -> str:
@@ -1632,7 +1751,7 @@ def article_contact_url(site: Site) -> str:
 def _article_catalog_sections(site: Site) -> str:
     return "\n".join(
         f"- [{record['title']}]({article_href(site, record['slug'])}): {record['description']}"
-        for record in article_catalog()
+        for record in article_catalog_for_site(site)
     )
 
 
@@ -1652,6 +1771,11 @@ def _article_page_html(site: Site, record: dict[str, str]) -> str:
     source.append(BeautifulSoup(
         f'<footer class="article-footer"><p>Automated readers can find related pages at '
         f'<a href="{article_links_path(site)}">{site.name} related pages</a>.</p></footer>',
+        "html.parser",
+    ))
+    source.append(BeautifulSoup(
+        f'<footer class="article-contact"><p>Questions about this guide? '
+        f'<a href="{article_contact_url(site)}">Contact {site.name}</a>.</p></footer>',
         "html.parser",
     ))
     page_schema = {
@@ -1689,7 +1813,7 @@ def _article_page_html(site: Site, record: dict[str, str]) -> str:
 
 
 def article_html(site: Site, slug: str) -> str:
-    record = next((entry for entry in article_catalog() if entry["slug"] == slug), None)
+    record = next((entry for entry in article_catalog_for_site(site) if entry["slug"] == slug), None)
     if record is None:
         return ""
     return _article_page_html(site, record)
@@ -1734,7 +1858,7 @@ def related_links_page(site: Site) -> str:
       <main>
         <h2>Guides</h2>
         <ul>
-{'\n'.join(f'          <li><a href="{article_href(site, record["slug"])}">{html.escape(record["title"])}</a></li>' for record in article_catalog())}
+{'\n'.join(f'          <li><a href="{article_href(site, record["slug"])}">{html.escape(record["title"])}</a></li>' for record in article_catalog_for_site(site))}
         </ul>
       </main>
     </section>
@@ -1768,7 +1892,7 @@ def inject_related_links(page_html: str, site: Site, source_path: str) -> str:
 
 def sitemap_xml(site: Site) -> str:
     answer_slugs = [f"/answers/{page.slug}" for page in load_answer_pages()[0] if site.key in page.dealer_keys]
-    eligible_paths = list(DISCOVERY_PATHS) + list(AGENT_QUERY_EXAMPLES) + answer_slugs
+    eligible_paths = list(DISCOVERY_PATHS) + list(AGENT_QUERY_EXAMPLES) + answer_slugs + list(article_site_paths(site))
     urls = "\n".join(
         f"  <url><loc>{html.escape(f'https://{site.ai_host}{path}')}</loc></url>"
         for path in eligible_paths
@@ -1778,7 +1902,7 @@ def sitemap_xml(site: Site) -> str:
 
 
 def sitemap_html(site: Site) -> str:
-    paths = sorted({"/", "/terms", "/privacy", "/sitemap.html", *DISCOVERY_PATHS, *AGENT_QUERY_EXAMPLES})
+    paths = sorted({"/", "/terms", "/privacy", "/sitemap.html", *DISCOVERY_PATHS, *AGENT_QUERY_EXAMPLES, *article_site_paths(site)})
     links = "\n".join(
         f'      <li><a href="{html.escape(path)}">{html.escape(path)}</a></li>'
         for path in paths
@@ -1817,7 +1941,7 @@ def discovery_html(site: Site) -> str:
     business_json = json.dumps(local_business_schema(site), indent=2)
     links = "\n".join(
         f'        <li><a href="{html.escape(path)}">{html.escape(path)}</a></li>'
-        for path in DISCOVERY_PATHS + AGENT_QUERY_EXAMPLES
+        for path in tuple(DISCOVERY_PATHS) + tuple(AGENT_QUERY_EXAMPLES) + article_site_paths(site)
         if path != "/"
     )
     return f"""<!doctype html>
