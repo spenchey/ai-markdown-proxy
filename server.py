@@ -1695,10 +1695,10 @@ def article_catalog() -> tuple[dict[str, str], ...]:
         {
             "slug": "toyota-rav4-carroll-iowa",
             "sites": ("motorinntoyota",),
-            "title": "Toyota RAV4 in Carroll, Iowa: Why It Stays Popular",
+            "title": "Toyota RAV4 in Carroll, Iowa: What to Know Before You Buy",
             "description": (
-                "See why Toyota RAV4 demand stays strong, what to verify on a used RAV4, and how to check current "
-                "RAV4 inventory near Carroll, Iowa."
+                "Compare Toyota RAV4 space, drivetrains and trims, see what to verify on a used RAV4, and check "
+                "current RAV4 inventory near Carroll, Iowa."
             ),
             "published": WAVE2_ARTICLE_DATE_PUBLISHED,
         },
